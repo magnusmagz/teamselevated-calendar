@@ -1,0 +1,29 @@
+{
+  "name": "teamselevated-calendar-backend",
+  "version": "1.0.0",
+  "description": "Calendar invite system for Teams Elevated",
+  "main": "events-gateway.php",
+  "scripts": {
+    "test": "php test-calendar-flow.php",
+    "test:viewer": "open http://localhost:8889/test-email-viewer.php",
+    "migrate": "mysql -u root -proot teams_elevated < migrations/add_calendar_invites.sql"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eyeinteams/teamselevated-calendar.git"
+  },
+  "keywords": [
+    "calendar",
+    "invites",
+    "sports",
+    "team-management",
+    "icalendar",
+    "sendgrid"
+  ],
+  "author": "Eye In Teams",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eyeinteams/teamselevated-calendar/issues"
+  },
+  "homepage": "https://github.com/eyeinteams/teamselevated-calendar#readme"
+}

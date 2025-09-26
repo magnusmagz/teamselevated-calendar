@@ -1,0 +1,43 @@
+# Environment Variables
+.env
+.env.local
+.env.test
+*.env
+
+# Composer
+vendor/
+composer.phar
+
+# Test Output
+test-output/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Temporary Files
+*.tmp
+*.bak
+*.cache
+tmp/
+
+# Sensitive Data
+config/credentials.php
+*_backup.sql
+
+# Node (if frontend is included)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Build files
+dist/
+build/

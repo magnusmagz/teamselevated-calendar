@@ -1,0 +1,19 @@
+{
+    "name": "teamselevated/backend",
+    "description": "Teams Elevated Backend",
+    "type": "project",
+    "require": {
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "TeamsElevated\\": "src/"
+        },
+        "classmap": [
+            "services/"
+        ]
+    },
+    "config": {
+        "vendor-dir": "vendor"
+    }
+}
