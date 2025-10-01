@@ -57,7 +57,7 @@ function handleCreateOrganization($conn, $input) {
         $conn->exec('BEGIN');
 
         // 1. Check if user already exists
-        $stmt = $conn->prepare('SELECT id, name, email FROM users WHERE email = :email');
+        $stmt = $conn->prepare('SELECT id, first_name, last_name, email FROM users WHERE email = :email');
         $stmt->execute(['email' => $email]);
         $existingUser = $stmt->fetch();
 
@@ -82,8 +82,9 @@ function handleCreateOrganization($conn, $input) {
 
             // Send magic link email
             $magicLink = getenv('APP_URL') . '/verify-magic-link?token=' . $token;
-            $email = new Email();
-            $email->sendMagicLink($email, $existingUser['name'], $magicLink);
+            $emailSender = new Email();
+            $fullName = trim($existingUser['first_name'] . ' ' . $existingUser['last_name']);
+            $emailSender->sendMagicLink($email, $fullName, $magicLink);
 
             $conn->exec('COMMIT');
 
@@ -96,15 +97,20 @@ function handleCreateOrganization($conn, $input) {
         }
 
         // 2. Create new user
+        // Split name into first and last
+        $nameParts = explode(' ', $userName, 2);
+        $firstName = $nameParts[0];
+        $lastName = $nameParts[1] ?? '';
+
         $stmt = $conn->prepare('
-            INSERT INTO users (name, email, phone, auth_provider, created_at)
-            VALUES (:name, :email, :phone, :auth_provider, CURRENT_TIMESTAMP)
+            INSERT INTO users (first_name, last_name, email, auth_provider, created_at)
+            VALUES (:first_name, :last_name, :email, :auth_provider, CURRENT_TIMESTAMP)
             RETURNING id
         ');
         $stmt->execute([
-            'name' => $userName,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'email' => $email,
-            'phone' => $phone,
             'auth_provider' => 'magic_link'
         ]);
         $result = $stmt->fetch();
