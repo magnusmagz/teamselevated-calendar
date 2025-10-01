@@ -1,13 +1,18 @@
 <?php
 /**
- * Database Connection - Neon PostgreSQL
+ * Neon PostgreSQL Database Connection
+ *
+ * This is the new database configuration for Neon.
+ * Once you're ready to migrate, replace database.php with this file.
  */
 
 require_once __DIR__ . '/env.php';
 
-class Database {
+class DatabaseNeon {
     private static $instance = null;
     private $connection;
+
+    // Neon PostgreSQL configuration
     private $host;
     private $db_name;
     private $username;
@@ -16,9 +21,9 @@ class Database {
 
     private function __construct() {
         // Load from environment variables
-        $this->host = Env::get('DB_HOST', 'localhost');
-        $this->db_name = Env::get('DB_NAME', 'neondb');
-        $this->username = Env::get('DB_USER', 'neondb_owner');
+        $this->host = Env::get('DB_HOST', 'your-project.neon.tech');
+        $this->db_name = Env::get('DB_NAME', 'teams_elevated');
+        $this->username = Env::get('DB_USER', 'your-username');
         $this->password = Env::get('DB_PASSWORD', '');
         $this->port = Env::get('DB_PORT', 5432);
 
@@ -42,7 +47,7 @@ class Database {
                 ]
             );
 
-            // Set search path
+            // Set search path (optional)
             $this->connection->exec("SET search_path TO public");
 
         } catch (PDOException $e) {
@@ -69,6 +74,9 @@ class Database {
     /**
      * Set the JWT claims for Row-Level Security
      *
+     * This is required for Neon RLS to work properly.
+     * Call this after authenticating a user.
+     *
      * @param string $userId User's ID
      * @param array $additionalClaims Optional additional JWT claims
      */
@@ -88,6 +96,34 @@ class Database {
 
         } catch (PDOException $e) {
             error_log('Failed to set auth user: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Clear the authentication context
+     */
+    public function clearAuthUser() {
+        try {
+            $this->connection->exec(
+                "SELECT set_config('request.jwt.claims', NULL, true)"
+            );
+        } catch (PDOException $e) {
+            error_log('Failed to clear auth user: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Test database connection
+     *
+     * @return bool
+     */
+    public function testConnection() {
+        try {
+            $this->connection->query('SELECT 1');
+            return true;
+        } catch (PDOException $e) {
+            error_log('Database connection test failed: ' . $e->getMessage());
+            return false;
         }
     }
 
