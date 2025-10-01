@@ -58,6 +58,10 @@ function handleCreateOrganization($conn, $input) {
         $conn->exec('BEGIN');
         error_log('Transaction started');
 
+        // Temporarily bypass RLS for organization creation (service role operation)
+        $conn->exec("SET LOCAL role TO 'neondb_owner'");
+        error_log('Role set to neondb_owner to bypass RLS');
+
         // 1. Check if user already exists
         error_log('Checking if user exists: ' . $email);
         $stmt = $conn->prepare('SELECT id, first_name, last_name, email FROM users WHERE email = :email');
