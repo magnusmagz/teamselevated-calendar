@@ -197,8 +197,16 @@ function handleCreateOrganization($conn, $input) {
         ];
 
     } catch (Exception $e) {
-        $conn->exec('ROLLBACK');
-        error_log('Organization creation error: ' . $e->getMessage());
+        // Log the FULL error immediately before rollback
+        $fullError = $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine();
+        error_log('Organization creation error (FULL): ' . $fullError);
+
+        try {
+            $conn->exec('ROLLBACK');
+        } catch (Exception $rollbackError) {
+            error_log('Rollback also failed: ' . $rollbackError->getMessage());
+        }
+
         http_response_code(500);
         return [
             'error' => 'Failed to create organization',
