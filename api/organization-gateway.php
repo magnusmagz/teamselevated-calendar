@@ -198,7 +198,7 @@ function handleCreateOrganization($conn, $input) {
         http_response_code(500);
         return [
             'error' => 'Failed to create organization',
-            'details' => getenv('APP_ENV') === 'development' ? $e->getMessage() : null
+            'details' => $e->getMessage() // Show error temporarily for debugging
         ];
     }
 }
