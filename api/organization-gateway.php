@@ -58,7 +58,9 @@ function handleCreateOrganization($conn, $input) {
 
         // 1. Check if user already exists
         $stmt = $conn->prepare('SELECT id, first_name, last_name, email FROM users WHERE email = :email');
-        $stmt->execute(['email' => $email]);
+        if (!$stmt->execute(['email' => $email])) {
+            throw new Exception('Failed to check existing user: ' . implode(', ', $stmt->errorInfo()));
+        }
         $existingUser = $stmt->fetch();
 
         if ($existingUser) {
@@ -107,12 +109,14 @@ function handleCreateOrganization($conn, $input) {
             VALUES (:first_name, :last_name, :email, :auth_provider, CURRENT_TIMESTAMP)
             RETURNING id
         ');
-        $stmt->execute([
+        if (!$stmt->execute([
             'first_name' => $firstName,
             'last_name' => $lastName,
             'email' => $email,
             'auth_provider' => 'magic_link'
-        ]);
+        ])) {
+            throw new Exception('Failed to create user: ' . implode(', ', $stmt->errorInfo()));
+        }
         $result = $stmt->fetch();
         $userId = $result['id'];
 
