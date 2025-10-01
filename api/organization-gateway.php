@@ -65,17 +65,25 @@ function handleCreateOrganization($conn, $input) {
             // Try alternate approach - just proceed without RLS bypass
         }
 
-        $conn->exec('BEGIN');
-        error_log('Transaction started');
+        try {
+            $conn->exec('BEGIN');
+            error_log('Transaction started');
+        } catch (PDOException $e) {
+            error_log('BEGIN FAILED: ' . $e->getMessage());
+            throw $e;
+        }
 
         // 1. Check if user already exists
         error_log('Checking if user exists: ' . $email);
-        $stmt = $conn->prepare('SELECT id, first_name, last_name, email FROM users WHERE email = :email');
-        if (!$stmt->execute(['email' => $email])) {
-            throw new Exception('Failed to check existing user: ' . implode(', ', $stmt->errorInfo()));
+        try {
+            $stmt = $conn->prepare('SELECT id, first_name, last_name, email FROM users WHERE email = :email');
+            $stmt->execute(['email' => $email]);
+            $existingUser = $stmt->fetch();
+            error_log('User check complete. Exists: ' . ($existingUser ? 'yes' : 'no'));
+        } catch (PDOException $e) {
+            error_log('SELECT user FAILED: ' . $e->getMessage());
+            throw $e;
         }
-        $existingUser = $stmt->fetch();
-        error_log('User check complete. Exists: ' . ($existingUser ? 'yes' : 'no'));
 
         if ($existingUser) {
             // User already exists, send magic link to existing user
