@@ -120,14 +120,20 @@ function handleCreateOrganization($conn, $input) {
             RETURNING id
         ');
         error_log('Prepared INSERT statement, executing...');
-        if (!$stmt->execute([
-            'first_name' => $firstName,
-            'last_name' => $lastName,
-            'email' => $email,
-            'auth_provider' => 'magic_link'
-        ])) {
-            throw new Exception('Failed to create user: ' . implode(', ', $stmt->errorInfo()));
+
+        try {
+            $stmt->execute([
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'email' => $email,
+                'auth_provider' => 'magic_link'
+            ]);
+            error_log('INSERT executed successfully');
+        } catch (PDOException $e) {
+            error_log('INSERT FAILED: ' . $e->getMessage());
+            throw $e;
         }
+
         $result = $stmt->fetch();
         $userId = $result['id'];
         error_log('User created with ID: ' . $userId);
