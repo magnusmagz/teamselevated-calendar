@@ -54,14 +54,18 @@ function handleCreateOrganization($conn, $input) {
     $roles = $input['roles']; // Array of role strings
 
     try {
+        error_log('Starting organization creation for: ' . $email);
         $conn->exec('BEGIN');
+        error_log('Transaction started');
 
         // 1. Check if user already exists
+        error_log('Checking if user exists: ' . $email);
         $stmt = $conn->prepare('SELECT id, first_name, last_name, email FROM users WHERE email = :email');
         if (!$stmt->execute(['email' => $email])) {
             throw new Exception('Failed to check existing user: ' . implode(', ', $stmt->errorInfo()));
         }
         $existingUser = $stmt->fetch();
+        error_log('User check complete. Exists: ' . ($existingUser ? 'yes' : 'no'));
 
         if ($existingUser) {
             // User already exists, send magic link to existing user
@@ -99,16 +103,19 @@ function handleCreateOrganization($conn, $input) {
         }
 
         // 2. Create new user
+        error_log('Creating new user: ' . $userName);
         // Split name into first and last
         $nameParts = explode(' ', $userName, 2);
         $firstName = $nameParts[0];
         $lastName = $nameParts[1] ?? '';
+        error_log('Name split - First: ' . $firstName . ', Last: ' . $lastName);
 
         $stmt = $conn->prepare('
             INSERT INTO users (first_name, last_name, email, auth_provider, created_at)
             VALUES (:first_name, :last_name, :email, :auth_provider, CURRENT_TIMESTAMP)
             RETURNING id
         ');
+        error_log('Prepared INSERT statement, executing...');
         if (!$stmt->execute([
             'first_name' => $firstName,
             'last_name' => $lastName,
@@ -119,6 +126,7 @@ function handleCreateOrganization($conn, $input) {
         }
         $result = $stmt->fetch();
         $userId = $result['id'];
+        error_log('User created with ID: ' . $userId);
 
         // 3. Create organization (club profile)
         $stmt = $conn->prepare('
