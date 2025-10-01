@@ -55,12 +55,18 @@ function handleCreateOrganization($conn, $input) {
 
     try {
         error_log('Starting organization creation for: ' . $email);
+
+        // Bypass RLS by setting session authorization BEFORE starting transaction
+        try {
+            $conn->exec("SET SESSION AUTHORIZATION 'neondb_owner'");
+            error_log('Session authorization set to neondb_owner');
+        } catch (PDOException $e) {
+            error_log('Failed to set session authorization: ' . $e->getMessage());
+            // Try alternate approach - just proceed without RLS bypass
+        }
+
         $conn->exec('BEGIN');
         error_log('Transaction started');
-
-        // Temporarily bypass RLS for organization creation (service role operation)
-        $conn->exec("SET LOCAL role TO 'neondb_owner'");
-        error_log('Role set to neondb_owner to bypass RLS');
 
         // 1. Check if user already exists
         error_log('Checking if user exists: ' . $email);
