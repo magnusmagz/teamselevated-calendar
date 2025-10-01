@@ -128,14 +128,15 @@ function handleCreateOrganization($conn, $input) {
         $lastName = $nameParts[1] ?? '';
         error_log('Name split - First: ' . $firstName . ', Last: ' . $lastName);
 
-        $stmt = $conn->prepare('
-            INSERT INTO users (first_name, last_name, email, auth_provider, created_at)
-            VALUES (:first_name, :last_name, :email, :auth_provider, CURRENT_TIMESTAMP)
-            RETURNING id
-        ');
-        error_log('Prepared INSERT statement, executing...');
-
         try {
+            error_log('Preparing INSERT statement...');
+            $stmt = $conn->prepare('
+                INSERT INTO users (first_name, last_name, email, auth_provider, created_at)
+                VALUES (:first_name, :last_name, :email, :auth_provider, CURRENT_TIMESTAMP)
+                RETURNING id
+            ');
+            error_log('Prepared INSERT statement, executing...');
+
             $stmt->execute([
                 'first_name' => $firstName,
                 'last_name' => $lastName,
@@ -144,7 +145,7 @@ function handleCreateOrganization($conn, $input) {
             ]);
             error_log('INSERT executed successfully');
         } catch (PDOException $e) {
-            error_log('INSERT FAILED: ' . $e->getMessage());
+            error_log('INSERT prepare or execute FAILED: ' . $e->getMessage());
             throw $e;
         }
 
