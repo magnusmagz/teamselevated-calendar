@@ -79,13 +79,13 @@ function handleCreateOrganization($conn, $input) {
             $token = bin2hex(random_bytes(32));
             $expiresAt = date('Y-m-d H:i:s', strtotime('+15 minutes'));
 
-            // Store token
+            // Store token (magic_link_tokens uses email, not user_id)
             $stmt = $conn->prepare('
-                INSERT INTO magic_link_tokens (user_id, token, expires_at, created_at)
-                VALUES (:user_id, :token, :expires_at, CURRENT_TIMESTAMP)
+                INSERT INTO magic_link_tokens (email, token, expires_at, created_at)
+                VALUES (:email, :token, :expires_at, CURRENT_TIMESTAMP)
             ');
             $stmt->execute([
-                'user_id' => $userId,
+                'email' => $email,
                 'token' => $token,
                 'expires_at' => $expiresAt
             ]);
@@ -156,7 +156,7 @@ function handleCreateOrganization($conn, $input) {
 
         // 3. Create organization (club profile)
         $stmt = $conn->prepare('
-            INSERT INTO club_profile (name, contact_email, contact_phone, created_at)
+            INSERT INTO club_profile (name, email, phone, created_at)
             VALUES (:name, :email, :phone, CURRENT_TIMESTAMP)
             RETURNING id
         ');
@@ -198,11 +198,11 @@ function handleCreateOrganization($conn, $input) {
         $expiresAt = date('Y-m-d H:i:s', strtotime('+15 minutes'));
 
         $stmt = $conn->prepare('
-            INSERT INTO magic_link_tokens (user_id, token, expires_at, created_at)
-            VALUES (:user_id, :token, :expires_at, CURRENT_TIMESTAMP)
+            INSERT INTO magic_link_tokens (email, token, expires_at, created_at)
+            VALUES (:email, :token, :expires_at, CURRENT_TIMESTAMP)
         ');
         $stmt->execute([
-            'user_id' => $userId,
+            'email' => $email,
             'token' => $token,
             'expires_at' => $expiresAt
         ]);
