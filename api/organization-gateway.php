@@ -135,14 +135,28 @@ function handleCreateOrganization($conn, $input) {
                 VALUES (:first_name, :last_name, :email, :auth_provider, CURRENT_TIMESTAMP)
                 RETURNING id
             ');
-            error_log('Prepared INSERT statement, executing...');
 
-            $stmt->execute([
+            if ($stmt === false) {
+                $errorInfo = $conn->errorInfo();
+                error_log('Prepare FAILED - Error: ' . print_r($errorInfo, true));
+                throw new PDOException('Prepare failed: ' . $errorInfo[2]);
+            }
+
+            error_log('Prepared INSERT statement successfully (stmt is valid), executing...');
+
+            $result = $stmt->execute([
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'email' => $email,
                 'auth_provider' => 'magic_link'
             ]);
+
+            if ($result === false) {
+                $errorInfo = $stmt->errorInfo();
+                error_log('Execute FAILED - Error: ' . print_r($errorInfo, true));
+                throw new PDOException('Execute failed: ' . $errorInfo[2]);
+            }
+
             error_log('INSERT executed successfully');
         } catch (PDOException $e) {
             error_log('INSERT prepare or execute FAILED: ' . $e->getMessage());
