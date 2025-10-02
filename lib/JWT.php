@@ -24,6 +24,7 @@ class JWT {
      */
     public static function generate($userId, $email, $name, $additionalClaims = []) {
         $algorithm = getenv('JWT_ALGORITHM') ?: 'HS256';
+        error_log("JWT::generate - Using algorithm: $algorithm");
 
         // Header
         $header = [
@@ -59,17 +60,23 @@ class JWT {
             // HMAC-based signature
             $secret = getenv('JWT_SECRET');
             if (!$secret) {
+                error_log("JWT::generate - ERROR: JWT_SECRET not configured");
                 throw new Exception('JWT_SECRET not configured');
             }
+            error_log("JWT::generate - JWT_SECRET found, length: " . strlen($secret));
             $signature = hash_hmac('sha256', $signatureInput, $secret, true);
             $signatureEncoded = self::base64UrlEncode($signature);
+            error_log("JWT::generate - HS256 signature created successfully");
         } else {
             // RS256: RSA-based signature
+            error_log("JWT::generate - Using RS256, loading private key");
             $signature = '';
             if (!openssl_sign($signatureInput, $signature, self::getPrivateKey(), OPENSSL_ALGO_SHA256)) {
+                error_log("JWT::generate - ERROR: Failed to sign JWT with RS256");
                 throw new Exception('Failed to sign JWT');
             }
             $signatureEncoded = self::base64UrlEncode($signature);
+            error_log("JWT::generate - RS256 signature created successfully");
         }
 
         return $signatureInput . '.' . $signatureEncoded;
@@ -83,9 +90,11 @@ class JWT {
      */
     public static function verify($token) {
         try {
+            error_log("JWT::verify - Starting token verification");
             $parts = explode('.', $token);
 
             if (count($parts) !== 3) {
+                error_log("JWT::verify - ERROR: Token does not have 3 parts");
                 return false;
             }
 
@@ -94,10 +103,12 @@ class JWT {
             // Decode header to determine algorithm
             $header = json_decode(self::base64UrlDecode($headerEncoded));
             if (!$header || !isset($header->alg)) {
+                error_log("JWT::verify - ERROR: Invalid header or missing algorithm");
                 return false;
             }
 
             $algorithm = $header->alg;
+            error_log("JWT::verify - Token algorithm: $algorithm");
 
             // Verify signature
             $signature = self::base64UrlDecode($signatureEncoded);
@@ -105,27 +116,33 @@ class JWT {
 
             if ($algorithm === 'HS256') {
                 // HMAC-based verification
+                error_log("JWT::verify - Verifying with HS256");
                 $secret = getenv('JWT_SECRET');
                 if (!$secret) {
-                    error_log('JWT verification error: JWT_SECRET not configured');
+                    error_log('JWT::verify - ERROR: JWT_SECRET not configured');
                     return false;
                 }
+                error_log("JWT::verify - JWT_SECRET found, length: " . strlen($secret));
                 $expectedSignature = hash_hmac('sha256', $signatureInput, $secret, true);
                 $verified = hash_equals($expectedSignature, $signature);
+                error_log("JWT::verify - HS256 verification result: " . ($verified ? 'PASS' : 'FAIL'));
             } elseif ($algorithm === 'RS256') {
                 // RSA-based verification
+                error_log("JWT::verify - Verifying with RS256");
                 $verified = openssl_verify(
                     $signatureInput,
                     $signature,
                     self::getPublicKey(),
                     OPENSSL_ALGO_SHA256
                 ) === 1;
+                error_log("JWT::verify - RS256 verification result: " . ($verified ? 'PASS' : 'FAIL'));
             } else {
-                error_log('JWT verification error: Unsupported algorithm ' . $algorithm);
+                error_log('JWT::verify - ERROR: Unsupported algorithm ' . $algorithm);
                 return false;
             }
 
             if (!$verified) {
+                error_log("JWT::verify - ERROR: Signature verification failed");
                 return false;
             }
 
@@ -133,19 +150,25 @@ class JWT {
             $payload = json_decode(self::base64UrlDecode($payloadEncoded));
 
             if (!$payload) {
+                error_log("JWT::verify - ERROR: Failed to decode payload");
                 return false;
             }
 
+            error_log("JWT::verify - Payload decoded successfully");
+
             // Check expiration
             if (isset($payload->exp) && $payload->exp < time()) {
+                error_log("JWT::verify - ERROR: Token expired");
                 return false; // Token expired
             }
 
             // Check not before
             if (isset($payload->nbf) && $payload->nbf > time()) {
+                error_log("JWT::verify - ERROR: Token not yet valid");
                 return false; // Token not yet valid
             }
 
+            error_log("JWT::verify - Token verification SUCCESSFUL");
             return $payload;
 
         } catch (Exception $e) {
