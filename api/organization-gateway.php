@@ -56,22 +56,8 @@ function handleCreateOrganization($conn, $input) {
     try {
         error_log('Starting organization creation for: ' . $email);
 
-        // Bypass RLS by setting session authorization BEFORE starting transaction
-        try {
-            $conn->exec("SET SESSION AUTHORIZATION 'neondb_owner'");
-            error_log('Session authorization set to neondb_owner');
-        } catch (PDOException $e) {
-            error_log('Failed to set session authorization: ' . $e->getMessage());
-            // Try alternate approach - just proceed without RLS bypass
-        }
-
-        try {
-            $conn->exec('BEGIN');
-            error_log('Transaction started');
-        } catch (PDOException $e) {
-            error_log('BEGIN FAILED: ' . $e->getMessage());
-            throw $e;
-        }
+        // TEST: Skip transaction and RLS bypass entirely - use autocommit
+        error_log('TESTING: Skipping transaction and RLS bypass');
 
         // 1. Check if user already exists
         error_log('Checking if user exists: ' . $email);
@@ -110,7 +96,8 @@ function handleCreateOrganization($conn, $input) {
             $fullName = trim($existingUser['first_name'] . ' ' . $existingUser['last_name']);
             $emailSender->sendMagicLink($email, $fullName, $magicLink);
 
-            $conn->exec('COMMIT');
+            // TEST: No COMMIT needed in autocommit mode
+            error_log('TESTING: Existing user path completed in autocommit mode');
 
             return [
                 'success' => true,
@@ -225,7 +212,8 @@ function handleCreateOrganization($conn, $input) {
         $emailSender = new Email();
         $emailSender->sendMagicLink($email, $userName, $magicLink);
 
-        $conn->exec('COMMIT');
+        // TEST: No COMMIT needed in autocommit mode
+        error_log('TESTING: All operations completed in autocommit mode');
 
         return [
             'success' => true,
@@ -244,15 +232,11 @@ function handleCreateOrganization($conn, $input) {
         ];
 
     } catch (Exception $e) {
-        // Log the FULL error immediately before rollback
+        // Log the FULL error
         $fullError = $e->getMessage() . ' | File: ' . $e->getFile() . ' | Line: ' . $e->getLine();
         error_log('Organization creation error (FULL): ' . $fullError);
 
-        try {
-            $conn->exec('ROLLBACK');
-        } catch (Exception $rollbackError) {
-            error_log('Rollback also failed: ' . $rollbackError->getMessage());
-        }
+        // TEST: No ROLLBACK needed in autocommit mode
 
         http_response_code(500);
         return [
