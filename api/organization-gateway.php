@@ -103,7 +103,7 @@ function handleCreateOrganization($conn, $input) {
                 'success' => true,
                 'message' => 'User already exists. Magic link sent to your email.',
                 'existingUser' => true,
-                'magicLink' => getenv('APP_ENV') === 'development' ? $magicLink : null
+                'magicLink' => $magicLink  // Always return for auto-login
             ];
         }
 
@@ -228,7 +228,7 @@ function handleCreateOrganization($conn, $input) {
                 'name' => $organizationName
             ],
             'roles' => $roles,
-            'magicLink' => getenv('APP_ENV') === 'development' ? $magicLink : null
+            'magicLink' => $magicLink  // Always return for auto-login
         ];
 
     } catch (Exception $e) {
