@@ -440,7 +440,7 @@ HTML;
         // Build RSVP buttons if token is provided and action is not cancel
         $rsvpButtons = '';
         if ($rsvpToken && $action !== 'cancel') {
-            $apiUrl = getenv('API_URL') ?: 'http://localhost:8888/teamselevated-backend';
+            $apiUrl = getenv('API_URL') ?: 'https://teamselevated-backend-0485388bd66e.herokuapp.com';
             $acceptUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=accepted';
             $declineUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=declined';
             $tentativeUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=tentative';
@@ -540,7 +540,7 @@ HTML;
 
         // Add RSVP links if token is provided and action is not cancel
         if ($rsvpToken && $action !== 'cancel') {
-            $apiUrl = getenv('API_URL') ?: 'http://localhost:8888/teamselevated-backend';
+            $apiUrl = getenv('API_URL') ?: 'https://teamselevated-backend-0485388bd66e.herokuapp.com';
             $acceptUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=accepted';
             $declineUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=declined';
             $tentativeUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=tentative';
