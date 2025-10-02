@@ -101,15 +101,16 @@ class Email {
             $subject = 'UPDATED: ' . $subject;
         }
 
-        // Build email body
-        $htmlBody = $this->getCalendarInviteTemplate($event, $action);
-        $textBody = $this->getCalendarInviteText($event, $action);
-
-        // Send to each attendee
+        // Send to each attendee with personalized RSVP links
         $allSent = true;
         if (!empty($event['attendees']) && is_array($event['attendees'])) {
             foreach ($event['attendees'] as $attendee) {
                 if (!empty($attendee['email'])) {
+                    // Build email body with RSVP token (personalized for each attendee)
+                    $rsvpToken = $attendee['rsvp_token'] ?? null;
+                    $htmlBody = $this->getCalendarInviteTemplate($event, $action, $rsvpToken);
+                    $textBody = $this->getCalendarInviteText($event, $action, $rsvpToken);
+
                     $sent = $this->sendWithCalendar(
                         $attendee['email'],
                         $subject,
@@ -414,7 +415,7 @@ HTML;
     /**
      * Calendar invite email template
      */
-    private function getCalendarInviteTemplate($event, $action) {
+    private function getCalendarInviteTemplate($event, $action, $rsvpToken = null) {
         $title = $event['summary'];
         $location = $event['location'] ?? 'TBD';
         $description = $event['description'] ?? '';
@@ -429,6 +430,29 @@ HTML;
             $actionMessage = '<div style="background: #fee; border-left: 4px solid #c00; padding: 15px; margin: 20px 0;"><strong>This event has been cancelled.</strong></div>';
         } elseif ($action === 'update') {
             $actionMessage = '<div style="background: #fef9e7; border-left: 4px solid #f39c12; padding: 15px; margin: 20px 0;"><strong>This event has been updated. Please check the details below.</strong></div>';
+        }
+
+        $descriptionHtml = '';
+        if ($description) {
+            $descriptionHtml = "<div class='detail-row'><span class='detail-label'>📝 Details:</span><br>{$description}</div>";
+        }
+
+        // Build RSVP buttons if token is provided and action is not cancel
+        $rsvpButtons = '';
+        if ($rsvpToken && $action !== 'cancel') {
+            $apiUrl = getenv('API_URL') ?: 'http://localhost:8888/teamselevated-backend';
+            $acceptUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=accepted';
+            $declineUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=declined';
+            $tentativeUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=tentative';
+
+            $rsvpButtons = <<<RSVP
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="font-weight: bold; margin-bottom: 15px;">Will you attend?</p>
+                <a href="{$acceptUrl}" style="display: inline-block; background: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; margin: 5px;">✓ Yes</a>
+                <a href="{$tentativeUrl}" style="display: inline-block; background: #ffc107; color: #333; padding: 12px 25px; text-decoration: none; border-radius: 5px; margin: 5px;">? Maybe</a>
+                <a href="{$declineUrl}" style="display: inline-block; background: #dc3545; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; margin: 5px;">✗ No</a>
+            </div>
+RSVP;
         }
 
         return <<<HTML
@@ -468,10 +492,11 @@ HTML;
                 <div class="detail-row">
                     <span class="detail-label">📍 Location:</span> {$location}
                 </div>
-                {$description ? "<div class='detail-row'><span class='detail-label'>📝 Details:</span><br>{$description}</div>" : ''}
+                {$descriptionHtml}
             </div>
-            <p style="text-align: center; margin-top: 30px;">
-                <em>This event has been added to your calendar. You can accept or decline the invitation directly in your calendar application.</em>
+            {$rsvpButtons}
+            <p style="text-align: center; margin-top: 30px; color: #666;">
+                <em>This event has been added to your calendar. You can also respond directly in your calendar application.</em>
             </p>
         </div>
         <div class="footer">
@@ -486,7 +511,7 @@ HTML;
     /**
      * Calendar invite plain text
      */
-    private function getCalendarInviteText($event, $action) {
+    private function getCalendarInviteText($event, $action, $rsvpToken = null) {
         $title = $event['summary'];
         $location = $event['location'] ?? 'TBD';
         $description = $event['description'] ?? '';
@@ -512,8 +537,23 @@ HTML;
         if ($description) {
             $text .= "Details: {$description}\n";
         }
+
+        // Add RSVP links if token is provided and action is not cancel
+        if ($rsvpToken && $action !== 'cancel') {
+            $apiUrl = getenv('API_URL') ?: 'http://localhost:8888/teamselevated-backend';
+            $acceptUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=accepted';
+            $declineUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=declined';
+            $tentativeUrl = $apiUrl . '/api/rsvp-webhook.php?action=respond&token=' . $rsvpToken . '&response=tentative';
+
+            $text .= "\n---\nWILL YOU ATTEND?\n\n";
+            $text .= "Yes, I'll be there: {$acceptUrl}\n";
+            $text .= "Maybe: {$tentativeUrl}\n";
+            $text .= "No, I can't attend: {$declineUrl}\n";
+            $text .= "---\n";
+        }
+
         $text .= "\nThis event has been added to your calendar.\n";
-        $text .= "You can accept or decline the invitation in your calendar application.\n\n";
+        $text .= "You can also respond directly in your calendar application.\n\n";
         $text .= "Teams Elevated\n";
 
         return $text;

@@ -71,6 +71,7 @@ function handleSendCalendarInvite($conn, $input) {
         // Get teams associated with this event
         $stmt = $conn->prepare('
             SELECT DISTINCT
+                u.id as user_id,
                 t.id,
                 t.name,
                 u.email,
@@ -92,12 +93,35 @@ function handleSendCalendarInvite($conn, $input) {
             ];
         }
 
-        // Build attendees array
+        // Build attendees array and create/update attendee records with RSVP tokens
         $attendeesList = [];
         foreach ($attendees as $attendee) {
+            $userId = $attendee['user_id'] ?? null;
+
+            // Generate unique RSVP token
+            $rsvpToken = bin2hex(random_bytes(32));
+
+            // Create or update attendee record
+            $stmt = $conn->prepare('
+                INSERT INTO calendar_event_attendees (event_id, user_id, email, rsvp_token, created_at)
+                VALUES (:event_id, :user_id, :email, :rsvp_token, CURRENT_TIMESTAMP)
+                ON CONFLICT (event_id, user_id)
+                DO UPDATE SET rsvp_token = :rsvp_token
+                RETURNING rsvp_token
+            ');
+            $stmt->execute([
+                'event_id' => $eventId,
+                'user_id' => $userId,
+                'email' => $attendee['email'],
+                'rsvp_token' => $rsvpToken
+            ]);
+            $result = $stmt->fetch();
+            $finalToken = $result['rsvp_token'];
+
             $attendeesList[] = [
                 'name' => trim($attendee['first_name'] . ' ' . $attendee['last_name']),
-                'email' => $attendee['email']
+                'email' => $attendee['email'],
+                'rsvp_token' => $finalToken
             ];
         }
 
