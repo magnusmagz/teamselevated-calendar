@@ -2,8 +2,10 @@
 /**
  * JWT (JSON Web Token) Library
  *
- * Handles creation and verification of RS256-signed JWTs for Neon RLS authentication.
- * Uses RSA private key for signing and public key for verification.
+ * Handles creation and verification of JWTs for authentication.
+ * Supports both HS256 (HMAC) and RS256 (RSA) algorithms based on JWT_ALGORITHM environment variable.
+ * - HS256: Uses shared secret (JWT_SECRET)
+ * - RS256: Uses RSA private/public key pair
  */
 
 class JWT {
@@ -21,12 +23,18 @@ class JWT {
      * @return string Signed JWT token
      */
     public static function generate($userId, $email, $name, $additionalClaims = []) {
+        $algorithm = getenv('JWT_ALGORITHM') ?: 'HS256';
+
         // Header
         $header = [
             'typ' => 'JWT',
-            'alg' => 'RS256',
-            'kid' => self::$keyId
+            'alg' => $algorithm
         ];
+
+        // Only add kid for RS256
+        if ($algorithm === 'RS256') {
+            $header['kid'] = self::$keyId;
+        }
 
         // Payload with standard claims
         $now = time();
@@ -46,13 +54,23 @@ class JWT {
 
         // Create signature
         $signatureInput = $headerEncoded . '.' . $payloadEncoded;
-        $signature = '';
 
-        if (!openssl_sign($signatureInput, $signature, self::getPrivateKey(), OPENSSL_ALGO_SHA256)) {
-            throw new Exception('Failed to sign JWT');
+        if ($algorithm === 'HS256') {
+            // HMAC-based signature
+            $secret = getenv('JWT_SECRET');
+            if (!$secret) {
+                throw new Exception('JWT_SECRET not configured');
+            }
+            $signature = hash_hmac('sha256', $signatureInput, $secret, true);
+            $signatureEncoded = self::base64UrlEncode($signature);
+        } else {
+            // RS256: RSA-based signature
+            $signature = '';
+            if (!openssl_sign($signatureInput, $signature, self::getPrivateKey(), OPENSSL_ALGO_SHA256)) {
+                throw new Exception('Failed to sign JWT');
+            }
+            $signatureEncoded = self::base64UrlEncode($signature);
         }
-
-        $signatureEncoded = self::base64UrlEncode($signature);
 
         return $signatureInput . '.' . $signatureEncoded;
     }
@@ -73,18 +91,41 @@ class JWT {
 
             list($headerEncoded, $payloadEncoded, $signatureEncoded) = $parts;
 
+            // Decode header to determine algorithm
+            $header = json_decode(self::base64UrlDecode($headerEncoded));
+            if (!$header || !isset($header->alg)) {
+                return false;
+            }
+
+            $algorithm = $header->alg;
+
             // Verify signature
             $signature = self::base64UrlDecode($signatureEncoded);
             $signatureInput = $headerEncoded . '.' . $payloadEncoded;
 
-            $verified = openssl_verify(
-                $signatureInput,
-                $signature,
-                self::getPublicKey(),
-                OPENSSL_ALGO_SHA256
-            );
+            if ($algorithm === 'HS256') {
+                // HMAC-based verification
+                $secret = getenv('JWT_SECRET');
+                if (!$secret) {
+                    error_log('JWT verification error: JWT_SECRET not configured');
+                    return false;
+                }
+                $expectedSignature = hash_hmac('sha256', $signatureInput, $secret, true);
+                $verified = hash_equals($expectedSignature, $signature);
+            } elseif ($algorithm === 'RS256') {
+                // RSA-based verification
+                $verified = openssl_verify(
+                    $signatureInput,
+                    $signature,
+                    self::getPublicKey(),
+                    OPENSSL_ALGO_SHA256
+                ) === 1;
+            } else {
+                error_log('JWT verification error: Unsupported algorithm ' . $algorithm);
+                return false;
+            }
 
-            if ($verified !== 1) {
+            if (!$verified) {
                 return false;
             }
 
