@@ -1,0 +1,16 @@
+# Disable PHP auto_prepend_file for this directory
+php_value auto_prepend_file none
+
+RewriteEngine On
+
+# Handle preflight requests
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# Route for athlete full profile
+RewriteRule ^api/athletes/([0-9]+)/full-profile$ api/athletes-profile.php/$1 [L]
+
+# Default fallback
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]

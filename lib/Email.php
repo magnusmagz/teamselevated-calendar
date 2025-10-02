@@ -7,6 +7,7 @@
  */
 
 require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/CalendarInvite.php';
 
 class Email {
     private $provider;
@@ -64,6 +65,64 @@ class Email {
                     "This invitation expires in 90 days.";
 
         return $this->send($to, $subject, $htmlBody, $textBody);
+    }
+
+    /**
+     * Send calendar invitation
+     *
+     * @param array $event Event details with keys:
+     *   - summary: Event title
+     *   - startDateTime: Start date/time
+     *   - endDateTime: End date/time
+     *   - location: Event location (optional)
+     *   - description: Event description (optional)
+     *   - status: 'scheduled', 'cancelled', 'postponed'
+     *   - organizerName: Name of organizer
+     *   - organizerEmail: Email of organizer
+     *   - attendees: Array of attendee objects with 'name' and 'email'
+     * @param string $action 'invite' | 'update' | 'cancel'
+     * @return bool Success status
+     */
+    public function sendCalendarInvite($event, $action = 'invite') {
+        // Generate the iCalendar content
+        if ($action === 'cancel') {
+            $icsContent = CalendarInvite::generateCancellation($event);
+        } elseif ($action === 'update') {
+            $icsContent = CalendarInvite::generateUpdate($event);
+        } else {
+            $icsContent = CalendarInvite::generate($event);
+        }
+
+        // Build email subject
+        $subject = $event['summary'];
+        if ($action === 'cancel') {
+            $subject = 'CANCELLED: ' . $subject;
+        } elseif ($action === 'update') {
+            $subject = 'UPDATED: ' . $subject;
+        }
+
+        // Build email body
+        $htmlBody = $this->getCalendarInviteTemplate($event, $action);
+        $textBody = $this->getCalendarInviteText($event, $action);
+
+        // Send to each attendee
+        $allSent = true;
+        if (!empty($event['attendees']) && is_array($event['attendees'])) {
+            foreach ($event['attendees'] as $attendee) {
+                if (!empty($attendee['email'])) {
+                    $sent = $this->sendWithCalendar(
+                        $attendee['email'],
+                        $subject,
+                        $htmlBody,
+                        $textBody,
+                        $icsContent
+                    );
+                    $allSent = $allSent && $sent;
+                }
+            }
+        }
+
+        return $allSent;
     }
 
     /**
@@ -242,5 +301,221 @@ HTML;
 </body>
 </html>
 HTML;
+    }
+
+    /**
+     * Send email with calendar attachment
+     */
+    private function sendWithCalendar($to, $subject, $htmlBody, $textBody, $icsContent) {
+        if ($this->provider === 'sendgrid' && !empty($this->apiKey)) {
+            return $this->sendCalendarViaSendGrid($to, $subject, $htmlBody, $textBody, $icsContent);
+        } else {
+            return $this->sendCalendarViaPHPMail($to, $subject, $htmlBody, $textBody, $icsContent);
+        }
+    }
+
+    /**
+     * Send calendar invite via SendGrid
+     */
+    private function sendCalendarViaSendGrid($to, $subject, $htmlBody, $textBody, $icsContent) {
+        // Encode the .ics content as base64 for attachment
+        $icsBase64 = base64_encode($icsContent);
+
+        $payload = [
+            'personalizations' => [
+                [
+                    'to' => [['email' => $to]],
+                    'subject' => $subject
+                ]
+            ],
+            'from' => [
+                'email' => $this->fromEmail,
+                'name' => $this->fromName
+            ],
+            'content' => [
+                ['type' => 'text/plain', 'value' => $textBody],
+                ['type' => 'text/html', 'value' => $htmlBody],
+                ['type' => 'text/calendar; method=REQUEST', 'value' => $icsContent]
+            ],
+            'attachments' => [
+                [
+                    'content' => $icsBase64,
+                    'type' => 'text/calendar; method=REQUEST',
+                    'filename' => 'invite.ics',
+                    'disposition' => 'attachment'
+                ]
+            ]
+        ];
+
+        $ch = curl_init('https://api.sendgrid.com/v3/mail/send');
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $this->apiKey,
+            'Content-Type: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode >= 200 && $httpCode < 300) {
+            error_log("Calendar invite sent successfully to $to via SendGrid");
+            return true;
+        } else {
+            error_log("SendGrid calendar invite error ($httpCode): $response");
+            return false;
+        }
+    }
+
+    /**
+     * Send calendar invite via PHP mail()
+     */
+    private function sendCalendarViaPHPMail($to, $subject, $htmlBody, $textBody, $icsContent) {
+        $boundary = md5(uniqid(time()));
+
+        $headers = [
+            'From: ' . $this->fromName . ' <' . $this->fromEmail . '>',
+            'Reply-To: ' . $this->fromEmail,
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/mixed; boundary="' . $boundary . '"',
+            'X-Mailer: PHP/' . phpversion()
+        ];
+
+        $message = "--$boundary\r\n";
+        $message .= "Content-Type: text/plain; charset=UTF-8\r\n";
+        $message .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
+        $message .= $textBody . "\r\n\r\n";
+
+        $message .= "--$boundary\r\n";
+        $message .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $message .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
+        $message .= $htmlBody . "\r\n\r\n";
+
+        $message .= "--$boundary\r\n";
+        $message .= "Content-Type: text/calendar; method=REQUEST; charset=UTF-8\r\n";
+        $message .= "Content-Transfer-Encoding: 7bit\r\n\r\n";
+        $message .= $icsContent . "\r\n\r\n";
+
+        $message .= "--$boundary--\r\n";
+
+        $sent = mail($to, $subject, $message, implode("\r\n", $headers));
+
+        if ($sent) {
+            error_log("Calendar invite sent successfully to $to via PHP mail()");
+        } else {
+            error_log("Failed to send calendar invite to $to via PHP mail()");
+        }
+
+        return $sent;
+    }
+
+    /**
+     * Calendar invite email template
+     */
+    private function getCalendarInviteTemplate($event, $action) {
+        $title = $event['summary'];
+        $location = $event['location'] ?? 'TBD';
+        $description = $event['description'] ?? '';
+        $startDateTime = new DateTime($event['startDateTime']);
+        $endDateTime = new DateTime($event['endDateTime']);
+
+        $dateFormatted = $startDateTime->format('l, F j, Y');
+        $timeFormatted = $startDateTime->format('g:i A') . ' - ' . $endDateTime->format('g:i A');
+
+        $actionMessage = '';
+        if ($action === 'cancel') {
+            $actionMessage = '<div style="background: #fee; border-left: 4px solid #c00; padding: 15px; margin: 20px 0;"><strong>This event has been cancelled.</strong></div>';
+        } elseif ($action === 'update') {
+            $actionMessage = '<div style="background: #fef9e7; border-left: 4px solid #f39c12; padding: 15px; margin: 20px 0;"><strong>This event has been updated. Please check the details below.</strong></div>';
+        }
+
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%); color: white; padding: 30px; text-align: center; }
+        .content { background: #f9f9f9; padding: 30px; }
+        .event-details { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #2d5016; }
+        .event-details h3 { margin-top: 0; color: #2d5016; }
+        .detail-row { padding: 10px 0; border-bottom: 1px solid #eee; }
+        .detail-label { font-weight: bold; color: #666; }
+        .button { display: inline-block; background: #2d5016; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Calendar Invitation</h1>
+        </div>
+        <div class="content">
+            {$actionMessage}
+            <div class="event-details">
+                <h3>{$title}</h3>
+                <div class="detail-row">
+                    <span class="detail-label">📅 Date:</span> {$dateFormatted}
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">🕐 Time:</span> {$timeFormatted}
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">📍 Location:</span> {$location}
+                </div>
+                {$description ? "<div class='detail-row'><span class='detail-label'>📝 Details:</span><br>{$description}</div>" : ''}
+            </div>
+            <p style="text-align: center; margin-top: 30px;">
+                <em>This event has been added to your calendar. You can accept or decline the invitation directly in your calendar application.</em>
+            </p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 Teams Elevated. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * Calendar invite plain text
+     */
+    private function getCalendarInviteText($event, $action) {
+        $title = $event['summary'];
+        $location = $event['location'] ?? 'TBD';
+        $description = $event['description'] ?? '';
+        $startDateTime = new DateTime($event['startDateTime']);
+        $endDateTime = new DateTime($event['endDateTime']);
+
+        $dateFormatted = $startDateTime->format('l, F j, Y');
+        $timeFormatted = $startDateTime->format('g:i A') . ' - ' . $endDateTime->format('g:i A');
+
+        $actionMessage = '';
+        if ($action === 'cancel') {
+            $actionMessage = "*** THIS EVENT HAS BEEN CANCELLED ***\n\n";
+        } elseif ($action === 'update') {
+            $actionMessage = "*** THIS EVENT HAS BEEN UPDATED ***\n\n";
+        }
+
+        $text = "CALENDAR INVITATION\n\n";
+        $text .= $actionMessage;
+        $text .= "Event: {$title}\n";
+        $text .= "Date: {$dateFormatted}\n";
+        $text .= "Time: {$timeFormatted}\n";
+        $text .= "Location: {$location}\n";
+        if ($description) {
+            $text .= "Details: {$description}\n";
+        }
+        $text .= "\nThis event has been added to your calendar.\n";
+        $text .= "You can accept or decline the invitation in your calendar application.\n\n";
+        $text .= "Teams Elevated\n";
+
+        return $text;
     }
 }
