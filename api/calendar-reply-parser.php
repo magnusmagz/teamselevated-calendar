@@ -90,38 +90,51 @@ function processCalendarReply($conn, $replyData) {
         // For now, we'll match by attendee email and find pending/recent events
         // In production, we should store the UID in the calendar_events table
 
-        // Update attendee RSVP status by email
+        // Find the most recent pending attendee record
         $stmt = $conn->prepare('
-            UPDATE calendar_event_attendees
-            SET rsvp_status = :rsvp_status, responded_at = CURRENT_TIMESTAMP
+            SELECT id, event_id
+            FROM calendar_event_attendees
             WHERE email = :email
             AND rsvp_status = \'pending\'
             ORDER BY created_at DESC
             LIMIT 1
-            RETURNING id, event_id
         ');
+        $stmt->execute(['email' => $attendeeEmail]);
+        $attendeeRecord = $stmt->fetch();
 
+        if (!$attendeeRecord) {
+            error_log("Calendar REPLY: No matching attendee found for email: $attendeeEmail");
+            return [
+                'success' => false,
+                'error' => 'No matching attendee found',
+                'email' => $attendeeEmail
+            ];
+        }
+
+        // Update the attendee's RSVP status
+        $stmt = $conn->prepare('
+            UPDATE calendar_event_attendees
+            SET rsvp_status = :rsvp_status, responded_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ');
         $result = $stmt->execute([
             'rsvp_status' => $rsvpStatus,
-            'email' => $attendeeEmail
+            'id' => $attendeeRecord['id']
         ]);
 
         if ($result) {
-            $updated = $stmt->fetch();
-            if ($updated) {
-                error_log("Calendar REPLY: Successfully updated attendee ID: {$updated['id']}, Event ID: {$updated['event_id']}");
+            error_log("Calendar REPLY: Successfully updated attendee ID: {$attendeeRecord['id']}, Event ID: {$attendeeRecord['event_id']}");
 
-                return [
-                    'success' => true,
-                    'message' => 'RSVP updated successfully',
-                    'attendee_id' => $updated['id'],
-                    'event_id' => $updated['event_id'],
-                    'status' => $rsvpStatus
-                ];
-            }
+            return [
+                'success' => true,
+                'message' => 'RSVP updated successfully',
+                'attendee_id' => $attendeeRecord['id'],
+                'event_id' => $attendeeRecord['event_id'],
+                'status' => $rsvpStatus
+            ];
         }
 
-        error_log("Calendar REPLY: No matching attendee found for email: $attendeeEmail");
+        error_log("Calendar REPLY: Failed to update attendee");
         return [
             'success' => false,
             'error' => 'No matching attendee found',
