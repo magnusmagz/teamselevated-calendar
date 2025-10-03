@@ -1,5 +1,5 @@
-# Disable PHP auto_prepend_file for this directory
-php_value auto_prepend_file none
+# Heroku-compatible .htaccess
+# Note: php_value directives are not supported on Heroku
 
 RewriteEngine On
 
