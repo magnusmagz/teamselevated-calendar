@@ -144,7 +144,7 @@ function handleSendCalendarInvite($conn, $input) {
             'description' => $event['description'] ?? '',
             'status' => strtoupper($event['status']),
             'organizerName' => 'Teams Elevated',
-            'organizerEmail' => 'maggie+rsvp@eyeinteams.com',  // RSVP email for calendar REPLY parsing
+            'organizerEmail' => 'events@rsvp.eyeinteams.com',  // RSVP email for calendar REPLY parsing
             'attendees' => $attendeesList
         ];
 

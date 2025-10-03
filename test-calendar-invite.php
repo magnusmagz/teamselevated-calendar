@@ -21,7 +21,7 @@ $event = [
     'description' => 'Regular practice session. Please arrive 15 minutes early.',
     'status' => 'CONFIRMED',
     'organizerName' => 'Teams Elevated',
-    'organizerEmail' => 'maggie+rsvp@eyeinteams.com',  // RSVP email for calendar REPLY parsing
+    'organizerEmail' => 'events@rsvp.eyeinteams.com',  // RSVP email for calendar REPLY parsing
     'attendees' => [
         [
             'name' => 'Test User',
