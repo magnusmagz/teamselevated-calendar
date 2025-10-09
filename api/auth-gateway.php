@@ -228,6 +228,7 @@ function handleVerifyMagicLink($db, $input) {
     echo json_encode([
         'success' => true,
         'message' => 'Authentication successful',
+        'token' => $jwt,
         'user' => [
             'id' => (int)$user['id'],
             'email' => $user['email'],
