@@ -13,6 +13,7 @@ header('Content-Type: application/json');
 // Dynamic CORS based on environment
 $allowedOrigins = [
     'http://localhost:3003',
+    'http://localhost:3001',
     'http://localhost:3000',
     'https://teams-elevated.netlify.app'
 ];
@@ -202,29 +203,7 @@ function handleVerifyMagicLink($db, $input) {
     $userName = trim($user['first_name'] . ' ' . $user['last_name']);
     $jwt = JWT::generate($user['id'], $user['email'], $userName);
 
-    // Set HTTP-only cookie
-    $cookieName = 'team-auth';
-    $cookieValue = $jwt;
-    $cookieExpiry = time() + (24 * 60 * 60); // 24 hours
-    $cookiePath = '/';
-    $cookieDomain = ''; // Empty for localhost
-    $cookieSecure = Env::get('APP_ENV') === 'production'; // Only HTTPS in production
-    $cookieHttpOnly = true;
-    $cookieSameSite = 'Lax';
-
-    setcookie(
-        $cookieName,
-        $cookieValue,
-        [
-            'expires' => $cookieExpiry,
-            'path' => $cookiePath,
-            'domain' => $cookieDomain,
-            'secure' => $cookieSecure,
-            'httponly' => $cookieHttpOnly,
-            'samesite' => $cookieSameSite
-        ]
-    );
-
+    // Return JWT in response body (no cookie needed for cross-domain)
     echo json_encode([
         'success' => true,
         'message' => 'Authentication successful',
@@ -241,7 +220,16 @@ function handleVerifyMagicLink($db, $input) {
  * Verify current session (check if user is authenticated)
  */
 function handleVerifySession() {
-    $jwt = $_COOKIE['team-auth'] ?? null;
+    // Check for JWT in Authorization header first, then fall back to cookie
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    $jwt = null;
+
+    if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+        $jwt = $matches[1];
+    } else {
+        // Fallback to cookie for backwards compatibility
+        $jwt = $_COOKIE['team-auth'] ?? null;
+    }
 
     if (!$jwt) {
         echo json_encode([

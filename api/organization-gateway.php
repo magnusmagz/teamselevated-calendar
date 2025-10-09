@@ -9,6 +9,7 @@ header('Content-Type: application/json');
 // Dynamic CORS based on environment
 $allowedOrigins = [
     'http://localhost:3003',
+    'http://localhost:3001',
     'http://localhost:3000',
     'https://teams-elevated.netlify.app'
 ];
