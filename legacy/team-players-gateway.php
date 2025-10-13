@@ -76,8 +76,8 @@ try {
             }
 
             $stmt = $pdo->prepare("
-                INSERT INTO team_members (team_id, user_id)
-                VALUES (?, ?)
+                INSERT INTO team_members (team_id, user_id, join_date)
+                VALUES (?, ?, CURRENT_DATE)
             ");
             $stmt->execute([$team_id, $user_id]);
 
