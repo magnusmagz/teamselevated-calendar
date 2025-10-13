@@ -99,9 +99,9 @@ class Team {
             ':logo_url' => $data['logo_url'] ?? null,
             ':age_group' => $data['age_group'],
             ':division' => $data['division'],
-            ':season_id' => $data['season_id'],
-            ':primary_coach_id' => $data['primary_coach_id'] ?? null,
-            ':home_field_id' => $data['home_field_id'] ?? null,
+            ':season_id' => !empty($data['season_id']) ? $data['season_id'] : null,
+            ':primary_coach_id' => !empty($data['primary_coach_id']) ? $data['primary_coach_id'] : null,
+            ':home_field_id' => !empty($data['home_field_id']) ? $data['home_field_id'] : null,
             ':max_players' => $data['max_players'] ?? 20
         ]);
 
@@ -129,9 +129,9 @@ class Team {
             ':logo_url' => $data['logo_url'] ?? null,
             ':age_group' => $data['age_group'],
             ':division' => $data['division'],
-            ':season_id' => $data['season_id'],
-            ':primary_coach_id' => $data['primary_coach_id'] ?? null,
-            ':home_field_id' => $data['home_field_id'] ?? null,
+            ':season_id' => !empty($data['season_id']) ? $data['season_id'] : null,
+            ':primary_coach_id' => !empty($data['primary_coach_id']) ? $data['primary_coach_id'] : null,
+            ':home_field_id' => !empty($data['home_field_id']) ? $data['home_field_id'] : null,
             ':max_players' => $data['max_players'] ?? 20,
             ':updated_by' => $_SESSION['user_id'] ?? 1
         ]);
@@ -162,13 +162,18 @@ class Team {
     public function isTeamNameUnique($name, $seasonId, $excludeId = null) {
         $sql = "SELECT COUNT(*) FROM teams
                 WHERE name = :name
-                AND season_id = :season_id
                 AND deleted_at IS NULL";
 
-        $params = [
-            ':name' => $name,
-            ':season_id' => $seasonId
-        ];
+        $params = [':name' => $name];
+
+        // Only check season_id if it's provided
+        if (!empty($seasonId)) {
+            $sql .= " AND season_id = :season_id";
+            $params[':season_id'] = $seasonId;
+        } else {
+            // If no season provided, check for teams with NULL season_id
+            $sql .= " AND season_id IS NULL";
+        }
 
         if ($excludeId) {
             $sql .= " AND id != :exclude_id";
