@@ -43,11 +43,11 @@ class AthleteController {
                 ':preferred_name' => $data['preferred_name'] ?? null,
                 ':date_of_birth' => $data['date_of_birth'],
                 ':gender' => $data['gender'],
-                ':home_address_line1' => $data['home_address_line1'],
+                ':home_address_line1' => $data['home_address_line1'] ?? 'TBD',
                 ':home_address_line2' => $data['home_address_line2'] ?? null,
-                ':city' => $data['city'],
-                ':state' => $data['state'],
-                ':zip_code' => $data['zip_code'],
+                ':city' => $data['city'] ?? 'TBD',
+                ':state' => $data['state'] ?? 'CA',
+                ':zip_code' => $data['zip_code'] ?? '00000',
                 ':country' => $data['country'] ?? 'USA',
                 ':school_name' => $data['school_name'] ?? null,
                 ':grade_level' => $data['grade_level'] ?? null,
@@ -296,21 +296,7 @@ class AthleteController {
             $errors['gender'] = 'Gender is required';
         }
 
-        if (empty($data['home_address_line1'])) {
-            $errors['home_address_line1'] = 'Address is required';
-        }
-
-        if (empty($data['city'])) {
-            $errors['city'] = 'City is required';
-        }
-
-        if (empty($data['state'])) {
-            $errors['state'] = 'State is required';
-        }
-
-        if (empty($data['zip_code'])) {
-            $errors['zip_code'] = 'Zip code is required';
-        }
+        // Address fields are optional, defaults will be applied in createAthlete
 
         return $errors;
     }
