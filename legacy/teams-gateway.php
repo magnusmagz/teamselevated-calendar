@@ -41,15 +41,15 @@ try {
                     SELECT t.*,
                            s.name as season_name,
                            CONCAT(u.first_name, ' ', u.last_name) as coach_name,
-                           f.name as home_field_name,
-                           COUNT(DISTINCT tp.user_id) as player_count
+                           COUNT(DISTINCT tm.id) as player_count
                     FROM teams t
                     LEFT JOIN seasons s ON t.season_id = s.id
                     LEFT JOIN users u ON t.primary_coach_id = u.id
-                    LEFT JOIN fields f ON t.home_field_id = f.id
-                    LEFT JOIN team_players tp ON t.id = tp.team_id
+                    LEFT JOIN team_members tm ON t.id = tm.team_id
                     WHERE t.id = ?
-                    GROUP BY t.id, s.name, u.first_name, u.last_name, f.name
+                    GROUP BY t.id, t.name, t.program_id, t.season_id, t.primary_coach_id, t.division,
+                             t.skill_level, t.age_group, t.gender, t.max_players, t.team_color,
+                             t.logo_url, t.status, t.created_at, t.updated_at, s.name, u.first_name, u.last_name
                 ");
                 $stmt->execute([$team_id]);
                 $team = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -60,13 +60,11 @@ try {
                     SELECT t.*,
                            s.name as season_name,
                            CONCAT(u.first_name, ' ', u.last_name) as coach_name,
-                           f.name as home_field_name,
-                           COUNT(DISTINCT tp.user_id) as player_count
+                           COUNT(DISTINCT tm.id) as player_count
                     FROM teams t
                     LEFT JOIN seasons s ON t.season_id = s.id
                     LEFT JOIN users u ON t.primary_coach_id = u.id
-                    LEFT JOIN fields f ON t.home_field_id = f.id
-                    LEFT JOIN team_players tp ON t.id = tp.team_id
+                    LEFT JOIN team_members tm ON t.id = tm.team_id
                     WHERE 1=1
                 ";
 
@@ -99,7 +97,10 @@ try {
                     $params[] = $primary_coach_id;
                 }
 
-                $query .= " GROUP BY t.id, s.name, u.first_name, u.last_name, f.name ORDER BY t.created_at DESC";
+                $query .= " GROUP BY t.id, t.name, t.program_id, t.season_id, t.primary_coach_id, t.division,
+                                     t.skill_level, t.age_group, t.gender, t.max_players, t.team_color,
+                                     t.logo_url, t.status, t.created_at, t.updated_at, s.name, u.first_name, u.last_name
+                            ORDER BY t.created_at DESC";
 
                 $stmt = $connection->prepare($query);
                 $stmt->execute($params);
@@ -112,25 +113,28 @@ try {
         case 'POST':
             $data = json_decode(file_get_contents("php://input"), true);
 
+            // program_id is required, use 1 as default if not provided
+            $program_id = $data['program_id'] ?? 1;
+
             $stmt = $connection->prepare("
-                INSERT INTO teams (name, age_group, division, season_id, primary_coach_id, home_field_id, max_players,
-                                 logo_data, logo_filename, primary_color, secondary_color, accent_color)
+                INSERT INTO teams (name, program_id, season_id, primary_coach_id, age_group, division,
+                                 max_players, team_color, logo_url, skill_level, gender, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
             $stmt->execute([
                 $data['name'],
-                $data['age_group'],
-                $data['division'],
+                $program_id,
                 isset($data['season_id']) && $data['season_id'] ? $data['season_id'] : null,
                 isset($data['primary_coach_id']) && $data['primary_coach_id'] ? $data['primary_coach_id'] : null,
-                isset($data['home_field_id']) && $data['home_field_id'] ? $data['home_field_id'] : null,
+                $data['age_group'] ?? null,
+                $data['division'] ?? null,
                 $data['max_players'] ?? 20,
-                $data['logo_data'] ?? null,
-                $data['logo_filename'] ?? null,
-                $data['primary_color'] ?? null,
-                $data['secondary_color'] ?? null,
-                $data['accent_color'] ?? null
+                $data['team_color'] ?? '#3b82f6',
+                $data['logo_url'] ?? null,
+                $data['skill_level'] ?? 'Beginner',
+                $data['gender'] ?? 'Mixed',
+                $data['status'] ?? 'forming'
             ]);
 
             echo json_encode([
@@ -149,25 +153,23 @@ try {
 
             $stmt = $connection->prepare("
                 UPDATE teams
-                SET name = ?, age_group = ?, division = ?, season_id = ?,
-                    primary_coach_id = ?, home_field_id = ?, max_players = ?,
-                    logo_data = ?, logo_filename = ?, primary_color = ?, secondary_color = ?, accent_color = ?
+                SET name = ?, age_group = ?, division = ?, season_id = ?, primary_coach_id = ?,
+                    max_players = ?, team_color = ?, logo_url = ?, skill_level = ?, gender = ?, status = ?
                 WHERE id = ?
             ");
 
             $stmt->execute([
                 $data['name'],
-                $data['age_group'],
-                $data['division'],
+                $data['age_group'] ?? null,
+                $data['division'] ?? null,
                 isset($data['season_id']) && $data['season_id'] ? $data['season_id'] : null,
                 isset($data['primary_coach_id']) && $data['primary_coach_id'] ? $data['primary_coach_id'] : null,
-                isset($data['home_field_id']) && $data['home_field_id'] ? $data['home_field_id'] : null,
                 $data['max_players'] ?? 20,
-                $data['logo_data'] ?? null,
-                $data['logo_filename'] ?? null,
-                $data['primary_color'] ?? null,
-                $data['secondary_color'] ?? null,
-                $data['accent_color'] ?? null,
+                $data['team_color'] ?? '#3b82f6',
+                $data['logo_url'] ?? null,
+                $data['skill_level'] ?? 'Beginner',
+                $data['gender'] ?? 'Mixed',
+                $data['status'] ?? 'forming',
                 $team_id
             ]);
 
