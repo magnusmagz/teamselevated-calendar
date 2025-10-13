@@ -12,6 +12,7 @@ require_once 'config/database.php';
 require_once 'controllers/TeamController.php';
 require_once 'controllers/AuthController.php';
 require_once 'controllers/CoachController.php';
+require_once 'controllers/AthleteController.php';
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
@@ -33,6 +34,8 @@ $routes = [
         '/api/coach/teams/(\d+)/attendance' => 'CoachController@attendance',
         '/api/coach/teams/(\d+)/export' => 'CoachController@exportRoster',
         '/api/coach/players/search' => 'CoachController@searchPlayers',
+        '/api/athletes' => 'AthleteController@getAthletes',
+        '/api/athletes/(\d+)' => 'AthleteController@getAthlete',
     ],
     'POST' => [
         '/api/teams' => 'TeamController@create',
@@ -44,6 +47,8 @@ $routes = [
         '/api/coach/teams/(\d+)/roster' => 'CoachController@addPlayer',
         '/api/coach/teams/(\d+)/guest-players' => 'CoachController@addGuestPlayer',
         '/api/coach/teams/(\d+)/attendance' => 'CoachController@attendance',
+        '/api/athletes' => 'AthleteController@createAthlete',
+        '/api/athletes/(\d+)/guardians' => 'AthleteController@addGuardian',
     ],
     'PUT' => [
         '/api/teams/(\d+)' => 'TeamController@update',
@@ -53,6 +58,7 @@ $routes = [
         '/api/teams/(\d+)' => 'TeamController@delete',
         '/api/teams/(\d+)/coaches/(\d+)' => 'TeamController@removeCoach',
         '/api/coach/teams/(\d+)/roster/(\d+)' => 'CoachController@removePlayer',
+        '/api/athletes/(\d+)/guardians/(\d+)' => 'AthleteController@removeGuardian',
     ],
 ];
 
