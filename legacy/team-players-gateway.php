@@ -30,11 +30,15 @@ try {
 
             if ($team_id) {
                 $stmt = $pdo->prepare("
-                    SELECT tp.*, u.first_name, u.last_name, u.email
+                    SELECT tp.*,
+                           COALESCE(a.first_name, u.first_name) as first_name,
+                           COALESCE(a.last_name, u.last_name) as last_name,
+                           COALESCE(a.email, u.email) as email
                     FROM team_members tp
-                    JOIN users u ON tp.user_id = u.id
+                    LEFT JOIN athletes a ON tp.athlete_id = a.id
+                    LEFT JOIN users u ON tp.user_id = u.id
                     WHERE tp.team_id = ?
-                    ORDER BY u.last_name, u.first_name
+                    ORDER BY COALESCE(a.last_name, u.last_name), COALESCE(a.first_name, u.first_name)
                 ");
                 $stmt->execute([$team_id]);
                 $team_members = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -43,16 +47,22 @@ try {
             } else {
                 // Get all team players
                 $stmt = $pdo->prepare("
-                    SELECT tp.*, u.first_name, u.last_name, u.email, t.name as team_name
+                    SELECT tp.*,
+                           COALESCE(a.first_name, u.first_name) as first_name,
+                           COALESCE(a.last_name, u.last_name) as last_name,
+                           COALESCE(a.email, u.email) as email,
+                           COALESCE(a.id, u.id) as member_id,
+                           t.name as team_name
                     FROM team_members tp
-                    JOIN users u ON tp.user_id = u.id
+                    LEFT JOIN athletes a ON tp.athlete_id = a.id
+                    LEFT JOIN users u ON tp.user_id = u.id
                     JOIN teams t ON tp.team_id = t.id
-                    ORDER BY t.name, u.last_name, u.first_name
+                    ORDER BY t.name, COALESCE(a.last_name, u.last_name), COALESCE(a.first_name, u.first_name)
                 ");
                 $stmt->execute();
                 $team_members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                echo json_encode(['success' => true, 'team_members' => $team_members]);
+                echo json_encode(['success' => true, 'team_players' => $team_members]);
             }
             break;
 
