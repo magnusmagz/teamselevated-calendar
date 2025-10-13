@@ -32,14 +32,10 @@ try {
                 // Get guardians for specific athlete
                 $stmt = $pdo->prepare("
                     SELECT ag.id as relationship_id,
-                           ag.relationship_type,
-                           ag.is_primary_contact,
-                           ag.has_legal_custody,
-                           ag.can_authorize_medical,
+                           ag.relationship as relationship_type,
+                           ag.is_primary as is_primary_contact,
                            ag.can_pickup,
-                           ag.receives_communications,
-                           ag.financial_responsible,
-                           ag.active_status,
+                           ag.emergency_contact,
                            g.id as guardian_id,
                            g.first_name,
                            g.last_name,
@@ -48,8 +44,8 @@ try {
                            g.work_phone
                     FROM athlete_guardians ag
                     JOIN guardians g ON ag.guardian_id = g.id
-                    WHERE ag.athlete_id = ? AND ag.active_status = 1
-                    ORDER BY ag.is_primary_contact DESC, g.first_name ASC
+                    WHERE ag.athlete_id = ?
+                    ORDER BY ag.is_primary DESC, g.first_name ASC
                 ");
                 $stmt->execute([$athleteId]);
                 $guardians = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -126,21 +122,17 @@ try {
                 // Link guardian to athlete
                 $stmt = $pdo->prepare("
                     INSERT INTO athlete_guardians (
-                        athlete_id, guardian_id, relationship_type,
-                        is_primary_contact, has_legal_custody, can_authorize_medical,
-                        can_pickup, receives_communications, financial_responsible
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        athlete_id, guardian_id, relationship,
+                        is_primary, can_pickup, emergency_contact
+                    ) VALUES (?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->execute([
                     $athleteId,
                     $guardianId,
                     $relationship_type,
-                    $input['is_primary_contact'] ?? 0,
-                    $input['has_legal_custody'] ?? 1,
-                    $input['can_authorize_medical'] ?? 1,
-                    $input['can_pickup'] ?? 1,
-                    $input['receives_communications'] ?? 1,
-                    $input['financial_responsible'] ?? 0
+                    $input['is_primary_contact'] ?? false,
+                    $input['can_pickup'] ?? true,
+                    $input['emergency_contact'] ?? false
                 ]);
 
                 $pdo->commit();
@@ -163,15 +155,17 @@ try {
             $updateFields = [];
             $updateValues = [];
 
-            $allowedFields = [
-                'relationship_type', 'is_primary_contact', 'has_legal_custody',
-                'can_authorize_medical', 'can_pickup', 'receives_communications', 'financial_responsible'
+            $fieldMapping = [
+                'relationship_type' => 'relationship',
+                'is_primary_contact' => 'is_primary',
+                'can_pickup' => 'can_pickup',
+                'emergency_contact' => 'emergency_contact'
             ];
 
-            foreach ($allowedFields as $field) {
-                if (isset($input[$field])) {
-                    $updateFields[] = "$field = ?";
-                    $updateValues[] = $input[$field];
+            foreach ($fieldMapping as $inputField => $dbField) {
+                if (isset($input[$inputField])) {
+                    $updateFields[] = "$dbField = ?";
+                    $updateValues[] = $input[$inputField];
                 }
             }
 
@@ -196,7 +190,7 @@ try {
                 throw new Exception('Guardian relationship ID is required');
             }
 
-            $stmt = $pdo->prepare("UPDATE athlete_guardians SET active_status = 0 WHERE id = ?");
+            $stmt = $pdo->prepare("DELETE FROM athlete_guardians WHERE id = ?");
             $stmt->execute([$id]);
 
             echo json_encode(['success' => true, 'message' => 'Guardian relationship removed successfully']);
