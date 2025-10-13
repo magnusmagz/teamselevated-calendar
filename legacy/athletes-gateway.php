@@ -46,17 +46,14 @@ try {
                                g.email,
                                g.mobile_phone,
                                g.work_phone,
-                               ag.relationship_type,
-                               ag.is_primary_contact,
-                               ag.has_legal_custody,
-                               ag.can_authorize_medical,
+                               ag.relationship,
+                               ag.is_primary,
                                ag.can_pickup,
-                               ag.receives_communications,
-                               ag.financial_responsible
+                               ag.emergency_contact
                         FROM athlete_guardians ag
                         JOIN guardians g ON ag.guardian_id = g.id
-                        WHERE ag.athlete_id = ? AND ag.active_status = 1
-                        ORDER BY ag.is_primary_contact DESC
+                        WHERE ag.athlete_id = ?
+                        ORDER BY ag.is_primary DESC
                     ");
                     $guardianStmt->execute([$id]);
                     $guardians = $guardianStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -73,13 +70,14 @@ try {
                     SELECT a.id, a.first_name, a.middle_initial, a.last_name, a.preferred_name,
                            a.date_of_birth, a.gender, a.school_name, a.grade_level, a.active_status,
                            a.created_at, u.email,
-                           apc.guardian_first_name, apc.guardian_last_name,
-                           CONCAT(apc.guardian_first_name, ' ', apc.guardian_last_name) as primary_guardian_name,
-                           apc.guardian_email as primary_guardian_email,
-                           apc.guardian_phone as primary_guardian_phone
+                           g.first_name as guardian_first_name, g.last_name as guardian_last_name,
+                           CONCAT(g.first_name, ' ', g.last_name) as primary_guardian_name,
+                           g.email as primary_guardian_email,
+                           g.mobile_phone as primary_guardian_phone
                     FROM athletes a
                     LEFT JOIN users u ON u.id = a.id AND u.role = 'player'
-                    LEFT JOIN athlete_primary_contacts apc ON apc.athlete_id = a.id
+                    LEFT JOIN athlete_guardians ag ON ag.athlete_id = a.id AND ag.is_primary = true
+                    LEFT JOIN guardians g ON g.id = ag.guardian_id
                     WHERE a.active_status = 1
                     ORDER BY a.last_name, a.first_name
                 ");
