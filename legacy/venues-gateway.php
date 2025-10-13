@@ -41,7 +41,7 @@ try {
                     FROM venues v
                     LEFT JOIN fields f ON v.id = f.venue_id
                     WHERE v.id = ?
-                    GROUP BY v.id, v.name, v.address, v.city, v.state, v.zip, v.map_url, v.website, v.created_at, v.updated_at
+                    GROUP BY v.id, v.name, v.address, v.city, v.state, v.zip_code, v.map_url, v.website, v.created_at, v.updated_at
                 ");
                 $stmt->execute([$venue_id]);
                 $venue = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -65,7 +65,7 @@ try {
                            COUNT(f.id) as field_count
                     FROM venues v
                     LEFT JOIN fields f ON v.id = f.venue_id
-                    GROUP BY v.id, v.name, v.address, v.city, v.state, v.zip, v.map_url, v.website, v.created_at, v.updated_at
+                    GROUP BY v.id, v.name, v.address, v.city, v.state, v.zip_code, v.map_url, v.website, v.created_at, v.updated_at
                     ORDER BY v.name
                 ");
                 $stmt->execute();

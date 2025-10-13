@@ -85,7 +85,7 @@ try {
                            COUNT(DISTINCT tp.user_id) as player_count
                     FROM programs p
                     LEFT JOIN teams t ON p.id = t.program_id
-                    LEFT JOIN team_players tp ON t.id = tp.team_id
+                    LEFT JOIN team_members tp ON t.id = tp.team_id
                     $whereClause
                     GROUP BY p.id
                     ORDER BY p.season_year DESC,

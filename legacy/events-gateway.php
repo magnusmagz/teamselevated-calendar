@@ -9,8 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Include service classes
-require_once __DIR__ . '/services/CalendarInviteService.php';
-require_once __DIR__ . '/services/RecipientService.php';
+require_once __DIR__ . '/../services/CalendarInviteService.php';
+require_once __DIR__ . '/../services/RecipientService.php';
 
 // Use centralized database connection
 require_once __DIR__ . '/../config/database.php';
