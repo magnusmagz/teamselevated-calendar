@@ -9,30 +9,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once '../../controllers/AthleteController.php';
+try {
+    require_once '../../controllers/AthleteController.php';
 
-session_start();
+    session_start();
 
-$controller = new AthleteController();
+    $controller = new AthleteController();
 
-$method = $_SERVER['REQUEST_METHOD'];
-$pathInfo = $_SERVER['PATH_INFO'] ?? '';
+    $method = $_SERVER['REQUEST_METHOD'];
+    $pathInfo = $_SERVER['PATH_INFO'] ?? '';
 
-switch ($method) {
-    case 'GET':
-        if (preg_match('/^\/(\d+)$/', $pathInfo, $matches)) {
-            $controller->getAthlete($matches[1]);
-        } else {
-            $controller->getAthletes();
-        }
-        break;
+    switch ($method) {
+        case 'GET':
+            if (preg_match('/^\/(\d+)$/', $pathInfo, $matches)) {
+                $controller->getAthlete($matches[1]);
+            } else {
+                $controller->getAthletes();
+            }
+            break;
 
-    case 'POST':
-        $controller->createAthlete();
-        break;
+        case 'POST':
+            $controller->createAthlete();
+            break;
 
-    default:
-        http_response_code(405);
-        echo json_encode(['error' => 'Method not allowed']);
-        break;
+        default:
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+            break;
+    }
+} catch (Exception $e) {
+    error_log('Athlete API Error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    http_response_code(500);
+    echo json_encode(['error' => $e->getMessage()]);
 }
