@@ -149,8 +149,10 @@ class AthleteController {
             ]);
         } catch (Exception $e) {
             $this->db->rollBack();
+            error_log('Failed to create athlete: ' . $e->getMessage());
+            error_log('Stack trace: ' . $e->getTraceAsString());
             http_response_code(500);
-            echo json_encode(['error' => 'Failed to create athlete']);
+            echo json_encode(['error' => 'Failed to create athlete', 'details' => $e->getMessage()]);
         }
     }
 
