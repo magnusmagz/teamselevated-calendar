@@ -9,15 +9,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-// Direct database connection
+// Use centralized database connection
+require_once __DIR__ . '/../config/database.php';
+
 try {
-    $connection = new PDO(
-        "mysql:unix_socket=/Applications/MAMP/tmp/mysql/mysql.sock;dbname=teams_elevated;charset=utf8mb4",
-        "root",
-        "root",
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-} catch (PDOException $e) {
+    $db = Database::getInstance();
+    $connection = $db->getConnection();
+} catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
     exit();
