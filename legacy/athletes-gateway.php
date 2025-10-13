@@ -78,7 +78,7 @@ try {
                     LEFT JOIN users u ON u.id = a.id AND u.role = 'player'
                     LEFT JOIN athlete_guardians ag ON ag.athlete_id = a.id AND ag.is_primary = true
                     LEFT JOIN guardians g ON g.id = ag.guardian_id
-                    WHERE a.active_status = 1
+                    WHERE a.active_status = true
                     ORDER BY a.last_name, a.first_name
                 ");
                 $stmt->execute();
@@ -140,7 +140,7 @@ try {
                             id, first_name, middle_initial, last_name, preferred_name,
                             date_of_birth, gender, home_address_line1, city, state, zip_code,
                             school_name, grade_level, active_status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)
                     ");
 
                     $stmt->execute([
@@ -166,7 +166,7 @@ try {
                             first_name, middle_initial, last_name, preferred_name,
                             date_of_birth, gender, home_address_line1, city, state, zip_code,
                             school_name, grade_level, active_status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)
                         RETURNING id
                     ");
 
@@ -284,11 +284,7 @@ try {
 
             try {
                 // Soft delete from athletes table
-                $stmt = $pdo->prepare("UPDATE athletes SET active_status = 0 WHERE id = ?");
-                $stmt->execute([$id]);
-
-                // Also deactivate user account
-                $stmt = $pdo->prepare("UPDATE users SET is_active = 0 WHERE id = ? AND role = 'player'");
+                $stmt = $pdo->prepare("UPDATE athletes SET active_status = false WHERE id = ?");
                 $stmt->execute([$id]);
 
                 $pdo->commit();
