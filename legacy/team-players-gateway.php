@@ -61,25 +61,25 @@ try {
             $input = json_decode(file_get_contents('php://input'), true);
 
             $team_id = $input['team_id'] ?? null;
-            $user_id = $input['player_id'] ?? null;
+            $athlete_id = $input['player_id'] ?? null;
 
-            if (!$team_id || !$user_id) {
-                throw new Exception('Team ID and User ID are required');
+            if (!$team_id || !$athlete_id) {
+                throw new Exception('Team ID and Athlete ID are required');
             }
 
             // Check if player is already on the team
-            $stmt = $pdo->prepare("SELECT id FROM team_members WHERE team_id = ? AND user_id = ?");
-            $stmt->execute([$team_id, $user_id]);
+            $stmt = $pdo->prepare("SELECT id FROM team_members WHERE team_id = ? AND athlete_id = ?");
+            $stmt->execute([$team_id, $athlete_id]);
 
             if ($stmt->fetch()) {
                 throw new Exception('Player is already on this team');
             }
 
             $stmt = $pdo->prepare("
-                INSERT INTO team_members (team_id, user_id, join_date)
+                INSERT INTO team_members (team_id, athlete_id, join_date)
                 VALUES (?, ?, CURRENT_DATE)
             ");
-            $stmt->execute([$team_id, $user_id]);
+            $stmt->execute([$team_id, $athlete_id]);
 
             echo json_encode(['success' => true, 'message' => 'Player added to team successfully']);
             break;
@@ -107,16 +107,16 @@ try {
             // Remove player from team
             $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
             $team_id = isset($_GET['team_id']) ? (int)$_GET['team_id'] : null;
-            $player_id = isset($_GET['player_id']) ? (int)$_GET['player_id'] : null;
+            $athlete_id = isset($_GET['player_id']) ? (int)$_GET['player_id'] : null;
 
             if ($id) {
                 $stmt = $pdo->prepare("DELETE FROM team_members WHERE id = ?");
                 $stmt->execute([$id]);
-            } elseif ($team_id && $player_id) {
-                $stmt = $pdo->prepare("DELETE FROM team_members WHERE team_id = ? AND user_id = ?");
-                $stmt->execute([$team_id, $player_id]);
+            } elseif ($team_id && $athlete_id) {
+                $stmt = $pdo->prepare("DELETE FROM team_members WHERE team_id = ? AND athlete_id = ?");
+                $stmt->execute([$team_id, $athlete_id]);
             } else {
-                throw new Exception('Either team player ID or both team ID and player ID are required');
+                throw new Exception('Either team player ID or both team ID and athlete ID are required');
             }
 
             echo json_encode(['success' => true, 'message' => 'Player removed from team successfully']);
