@@ -8,16 +8,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-$servername = "localhost";
-$username = "root";
-$password = "root";
-$dbname = "teams_elevated";
-$socket = "/Applications/MAMP/tmp/mysql/mysql.sock";
+// Use centralized database connection
+require_once __DIR__ . '/../config/database.php';
 
 try {
-    $pdo = new PDO("mysql:host=$servername;dbname=$dbname;unix_socket=$socket", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
+    $db = Database::getInstance();
+    $pdo = $db->getConnection();
+} catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
@@ -128,39 +125,70 @@ try {
                 $user_id = null;
                 if ($email) {
                     $stmt = $pdo->prepare("
-                        INSERT INTO users (first_name, last_name, email, password, role)
+                        INSERT INTO users (first_name, last_name, email, password_hash, role)
                         VALUES (?, ?, ?, ?, 'player')
+                        RETURNING id
                     ");
                     $stmt->execute([$first_name, $last_name, $email, $password]);
-                    $user_id = $pdo->lastInsertId();
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $user_id = $result['id'];
                 }
 
                 // Create athlete record with required fields
-                $stmt = $pdo->prepare("
-                    INSERT INTO athletes (
-                        id, first_name, middle_initial, last_name, preferred_name,
-                        date_of_birth, gender, home_address_line1, city, state, zip_code,
-                        school_name, grade_level, active_status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                ");
+                if ($user_id) {
+                    // If we have a user_id, use it as the athlete id
+                    $stmt = $pdo->prepare("
+                        INSERT INTO athletes (
+                            id, first_name, middle_initial, last_name, preferred_name,
+                            date_of_birth, gender, home_address_line1, city, state, zip_code,
+                            school_name, grade_level, active_status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                    ");
 
-                $stmt->execute([
-                    $user_id,
-                    $first_name,
-                    $middle_initial,
-                    $last_name,
-                    $preferred_name,
-                    $date_of_birth,
-                    $gender,
-                    $input['home_address_line1'] ?? 'TBD',
-                    $input['city'] ?? 'TBD',
-                    $input['state'] ?? 'CA',
-                    $input['zip_code'] ?? '00000',
-                    $school_name,
-                    $grade_level
-                ]);
+                    $stmt->execute([
+                        $user_id,
+                        $first_name,
+                        $middle_initial,
+                        $last_name,
+                        $preferred_name,
+                        $date_of_birth,
+                        $gender,
+                        $input['home_address_line1'] ?? 'TBD',
+                        $input['city'] ?? 'TBD',
+                        $input['state'] ?? 'CA',
+                        $input['zip_code'] ?? '00000',
+                        $school_name,
+                        $grade_level
+                    ]);
+                    $athlete_id = $user_id;
+                } else {
+                    // No user_id, let database generate athlete id
+                    $stmt = $pdo->prepare("
+                        INSERT INTO athletes (
+                            first_name, middle_initial, last_name, preferred_name,
+                            date_of_birth, gender, home_address_line1, city, state, zip_code,
+                            school_name, grade_level, active_status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                        RETURNING id
+                    ");
 
-                $athlete_id = $user_id ?: $pdo->lastInsertId();
+                    $stmt->execute([
+                        $first_name,
+                        $middle_initial,
+                        $last_name,
+                        $preferred_name,
+                        $date_of_birth,
+                        $gender,
+                        $input['home_address_line1'] ?? 'TBD',
+                        $input['city'] ?? 'TBD',
+                        $input['state'] ?? 'CA',
+                        $input['zip_code'] ?? '00000',
+                        $school_name,
+                        $grade_level
+                    ]);
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $athlete_id = $result['id'];
+                }
 
                 $pdo->commit();
                 echo json_encode(['success' => true, 'athlete_id' => $athlete_id, 'message' => 'Athlete created successfully']);
