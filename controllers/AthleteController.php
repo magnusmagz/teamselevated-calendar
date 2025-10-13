@@ -52,7 +52,7 @@ class AthleteController {
                 ':school_name' => $data['school_name'] ?? null,
                 ':grade_level' => $data['grade_level'] ?? null,
                 ':dietary_restrictions' => !empty($data['dietary_restrictions']) ? json_encode($data['dietary_restrictions']) : null,
-                ':created_by' => $_SESSION['user_id'] ?? 1
+                ':created_by' => $_SESSION['user_id'] ?? null
             ]);
 
             $athleteId = $this->db->lastInsertId();
