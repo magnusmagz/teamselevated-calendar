@@ -31,28 +31,28 @@ try {
             if ($team_id) {
                 $stmt = $pdo->prepare("
                     SELECT tp.*, u.first_name, u.last_name, u.email
-                    FROM team_players tp
+                    FROM team_members tp
                     JOIN users u ON tp.user_id = u.id
                     WHERE tp.team_id = ?
                     ORDER BY u.last_name, u.first_name
                 ");
                 $stmt->execute([$team_id]);
-                $team_players = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $team_members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                echo json_encode(['success' => true, 'team_players' => $team_players]);
+                echo json_encode(['success' => true, 'team_members' => $team_members]);
             } else {
                 // Get all team players
                 $stmt = $pdo->prepare("
                     SELECT tp.*, u.first_name, u.last_name, u.email, t.name as team_name
-                    FROM team_players tp
+                    FROM team_members tp
                     JOIN users u ON tp.user_id = u.id
                     JOIN teams t ON tp.team_id = t.id
                     ORDER BY t.name, u.last_name, u.first_name
                 ");
                 $stmt->execute();
-                $team_players = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $team_members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                echo json_encode(['success' => true, 'team_players' => $team_players]);
+                echo json_encode(['success' => true, 'team_members' => $team_members]);
             }
             break;
 
@@ -68,7 +68,7 @@ try {
             }
 
             // Check if player is already on the team
-            $stmt = $pdo->prepare("SELECT id FROM team_players WHERE team_id = ? AND user_id = ?");
+            $stmt = $pdo->prepare("SELECT id FROM team_members WHERE team_id = ? AND user_id = ?");
             $stmt->execute([$team_id, $user_id]);
 
             if ($stmt->fetch()) {
@@ -76,7 +76,7 @@ try {
             }
 
             $stmt = $pdo->prepare("
-                INSERT INTO team_players (team_id, user_id)
+                INSERT INTO team_members (team_id, user_id)
                 VALUES (?, ?)
             ");
             $stmt->execute([$team_id, $user_id]);
@@ -96,7 +96,7 @@ try {
             $status = $input['status'] ?? null;
 
             if ($status) {
-                $stmt = $pdo->prepare("UPDATE team_players SET status = ? WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE team_members SET status = ? WHERE id = ?");
                 $stmt->execute([$status, $id]);
             }
 
@@ -110,10 +110,10 @@ try {
             $player_id = isset($_GET['player_id']) ? (int)$_GET['player_id'] : null;
 
             if ($id) {
-                $stmt = $pdo->prepare("DELETE FROM team_players WHERE id = ?");
+                $stmt = $pdo->prepare("DELETE FROM team_members WHERE id = ?");
                 $stmt->execute([$id]);
             } elseif ($team_id && $player_id) {
-                $stmt = $pdo->prepare("DELETE FROM team_players WHERE team_id = ? AND user_id = ?");
+                $stmt = $pdo->prepare("DELETE FROM team_members WHERE team_id = ? AND user_id = ?");
                 $stmt->execute([$team_id, $player_id]);
             } else {
                 throw new Exception('Either team player ID or both team ID and player ID are required');
