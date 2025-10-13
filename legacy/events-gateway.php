@@ -49,7 +49,7 @@ try {
                 if ($event) {
                     // Get teams for this event
                     $teamStmt = $pdo->prepare("
-                        SELECT t.id, t.name, t.primary_color
+                        SELECT t.id, t.name, t.team_color as primary_color
                         FROM calendar_event_teams et
                         JOIN teams t ON et.team_id = t.id
                         WHERE et.event_id = ?
@@ -120,7 +120,7 @@ try {
                 // Enrich events with team information
                 foreach ($events as &$event) {
                     $teamStmt = $pdo->prepare("
-                        SELECT t.id, t.name, t.primary_color
+                        SELECT t.id, t.name, t.team_color as primary_color
                         FROM calendar_event_teams et
                         JOIN teams t ON et.team_id = t.id
                         WHERE et.event_id = ?
