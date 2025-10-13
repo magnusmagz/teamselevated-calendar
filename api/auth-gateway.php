@@ -10,18 +10,8 @@
 
 header('Content-Type: application/json');
 
-// Dynamic CORS based on environment
-$allowedOrigins = [
-    'http://localhost:3003',
-    'http://localhost:3001',
-    'http://localhost:3000',
-    'https://teams-elevated.netlify.app'
-];
-
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if (in_array($origin, $allowedOrigins)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-}
+// Allow all origins for CORS
+header('Access-Control-Allow-Origin: *');
 
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
