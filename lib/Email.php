@@ -222,9 +222,9 @@ class Email {
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%); color: white; padding: 30px; text-align: center; }
+        .header { background: linear-gradient(135deg, #12443E 0%, #12443E 100%); color: white; padding: 30px; text-align: center; }
         .content { background: #f9f9f9; padding: 30px; }
-        .button { display: inline-block; background: #2d5016; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; background: #12443E; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
         .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
     </style>
 </head>
@@ -259,7 +259,7 @@ HTML;
      * Team invitation email template
      */
     private function getTeamInvitationTemplate($teamName, $invitedBy, $invitationLink, $personalMessage) {
-        $messageHtml = $personalMessage ? "<p style='background: #fff; padding: 15px; border-left: 4px solid #2d5016; margin: 20px 0;'><em>\"$personalMessage\"</em></p>" : '';
+        $messageHtml = $personalMessage ? "<p style='background: #fff; padding: 15px; border-left: 4px solid #12443E; margin: 20px 0;'><em>\"$personalMessage\"</em></p>" : '';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -270,9 +270,9 @@ HTML;
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%); color: white; padding: 30px; text-align: center; }
+        .header { background: linear-gradient(135deg, #12443E 0%, #12443E 100%); color: white; padding: 30px; text-align: center; }
         .content { background: #f9f9f9; padding: 30px; }
-        .button { display: inline-block; background: #2d5016; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; background: #12443E; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
         .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
     </style>
 </head>
@@ -464,13 +464,13 @@ RSVP;
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 100%); color: white; padding: 30px; text-align: center; }
+        .header { background: linear-gradient(135deg, #12443E 0%, #12443E 100%); color: white; padding: 30px; text-align: center; }
         .content { background: #f9f9f9; padding: 30px; }
-        .event-details { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #2d5016; }
-        .event-details h3 { margin-top: 0; color: #2d5016; }
+        .event-details { background: white; padding: 20px; margin: 20px 0; border-left: 4px solid #12443E; }
+        .event-details h3 { margin-top: 0; color: #12443E; }
         .detail-row { padding: 10px 0; border-bottom: 1px solid #eee; }
         .detail-label { font-weight: bold; color: #666; }
-        .button { display: inline-block; background: #2d5016; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
+        .button { display: inline-block; background: #12443E; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
         .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
     </style>
 </head>

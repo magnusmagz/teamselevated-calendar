@@ -10,8 +10,9 @@
 
 header('Content-Type: application/json');
 
-// Allow all origins for CORS
-header('Access-Control-Allow-Origin: *');
+// Allow specific origin for CORS (required when using credentials)
+$origin = $_SERVER['HTTP_ORIGIN'] ?? 'http://localhost:5173';
+header('Access-Control-Allow-Origin: ' . $origin);
 
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');

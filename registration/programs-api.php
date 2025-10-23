@@ -131,22 +131,21 @@ try {
 
                 // Add default form fields
                 $default_fields = [
-                    ['field_name' => 'athlete_first_name', 'field_label' => 'Athlete First Name', 'field_type' => 'text', 'required' => true, 'section' => 'athlete_info', 'display_order' => 1],
-                    ['field_name' => 'athlete_last_name', 'field_label' => 'Athlete Last Name', 'field_type' => 'text', 'required' => true, 'section' => 'athlete_info', 'display_order' => 2],
-                    ['field_name' => 'athlete_dob', 'field_label' => 'Date of Birth', 'field_type' => 'date', 'required' => true, 'section' => 'athlete_info', 'display_order' => 3],
-                    ['field_name' => 'parent_name', 'field_label' => 'Parent/Guardian Name', 'field_type' => 'text', 'required' => true, 'section' => 'parent_info', 'display_order' => 4],
-                    ['field_name' => 'parent_email', 'field_label' => 'Email', 'field_type' => 'email', 'required' => true, 'section' => 'parent_info', 'display_order' => 5],
-                    ['field_name' => 'parent_phone', 'field_label' => 'Phone', 'field_type' => 'tel', 'required' => true, 'section' => 'parent_info', 'display_order' => 6],
-                    ['field_name' => 'emergency_contact', 'field_label' => 'Emergency Contact Name', 'field_type' => 'text', 'required' => true, 'section' => 'emergency', 'display_order' => 7],
-                    ['field_name' => 'emergency_phone', 'field_label' => 'Emergency Phone', 'field_type' => 'tel', 'required' => true, 'section' => 'emergency', 'display_order' => 8],
-                    ['field_name' => 'medical_conditions', 'field_label' => 'Medical Conditions/Allergies', 'field_type' => 'textarea', 'required' => false, 'section' => 'medical', 'display_order' => 9],
-                    ['field_name' => 'waiver_agreed', 'field_label' => 'I agree to the terms and conditions', 'field_type' => 'checkbox', 'required' => true, 'section' => 'waiver', 'display_order' => 10]
+                    ['field_name' => 'athlete_first', 'field_label' => 'Athlete First', 'field_type' => 'text', 'required' => true, 'section' => 'athlete_info', 'display_order' => 1, 'options' => null],
+                    ['field_name' => 'athlete_last', 'field_label' => 'Athlete Last', 'field_type' => 'text', 'required' => true, 'section' => 'athlete_info', 'display_order' => 2, 'options' => null],
+                    ['field_name' => 'athlete_birthday', 'field_label' => 'Athlete Birthday', 'field_type' => 'date', 'required' => true, 'section' => 'athlete_info', 'display_order' => 3, 'options' => null],
+                    ['field_name' => 'athlete_gender', 'field_label' => 'Athlete Gender', 'field_type' => 'select', 'required' => true, 'section' => 'athlete_info', 'display_order' => 4, 'options' => ['Male', 'Female', 'Non-binary', 'Prefer not to say']],
+                    ['field_name' => 'athlete_grade', 'field_label' => 'Athlete Grade', 'field_type' => 'select', 'required' => true, 'section' => 'athlete_info', 'display_order' => 5, 'options' => ['Pre-K', 'Kindergarten', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th']],
+                    ['field_name' => 'guardian_first', 'field_label' => 'Guardian First', 'field_type' => 'text', 'required' => true, 'section' => 'parent_info', 'display_order' => 6, 'options' => null],
+                    ['field_name' => 'guardian_last', 'field_label' => 'Guardian Last', 'field_type' => 'text', 'required' => true, 'section' => 'parent_info', 'display_order' => 7, 'options' => null],
+                    ['field_name' => 'guardian_email', 'field_label' => 'Guardian Email', 'field_type' => 'email', 'required' => true, 'section' => 'parent_info', 'display_order' => 8, 'options' => null],
+                    ['field_name' => 'mobile_phone', 'field_label' => 'Mobile Phone', 'field_type' => 'tel', 'required' => true, 'section' => 'parent_info', 'display_order' => 9, 'options' => null]
                 ];
 
                 $field_stmt = $connection->prepare("
                     INSERT INTO program_form_fields (
-                        program_id, field_name, field_label, field_type, required, section, display_order
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        program_id, field_name, field_label, field_type, required, options, section, display_order
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ");
 
                 foreach ($default_fields as $field) {
@@ -156,6 +155,7 @@ try {
                         $field['field_label'],
                         $field['field_type'],
                         $field['required'] ? 1 : 0,  // Convert boolean to integer
+                        $field['options'] ? json_encode($field['options']) : null,
                         $field['section'],
                         $field['display_order']
                     ]);
