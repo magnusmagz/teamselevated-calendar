@@ -44,6 +44,28 @@ class Email {
     }
 
     /**
+     * Send password reset email
+     *
+     * @param string $to Recipient email
+     * @param string $name Recipient name
+     * @param string $resetLink The password reset URL
+     * @return bool Success status
+     */
+    public function sendPasswordReset($to, $name, $resetLink) {
+        $subject = 'Reset Your Teams Elevated Password';
+
+        $htmlBody = $this->getPasswordResetTemplate($name, $resetLink);
+        $textBody = "Hi $name,\n\n" .
+                    "We received a request to reset your password for Teams Elevated.\n\n" .
+                    "Click the link below to reset your password:\n\n" .
+                    "$resetLink\n\n" .
+                    "This link expires in 1 hour.\n\n" .
+                    "If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.";
+
+        return $this->send($to, $subject, $htmlBody, $textBody);
+    }
+
+    /**
      * Send team invitation email
      *
      * @param string $to Recipient email
@@ -244,6 +266,54 @@ class Email {
             </p>
             <p style="color: #999; font-size: 12px; word-break: break-all;">
                 Or copy and paste this link: {$magicLink}
+            </p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 Teams Elevated. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * Password reset email template
+     */
+    private function getPasswordResetTemplate($name, $resetLink) {
+        return <<<HTML
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #12443E 0%, #12443E 100%); color: white; padding: 30px; text-align: center; }
+        .content { background: #f9f9f9; padding: 30px; }
+        .button { display: inline-block; background: #12443E; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Teams Elevated</h1>
+        </div>
+        <div class="content">
+            <h2>Reset Your Password</h2>
+            <p>Hi {$name},</p>
+            <p>We received a request to reset your password for your Teams Elevated account.</p>
+            <p style="text-align: center;">
+                <a href="{$resetLink}" class="button">Reset Password</a>
+            </p>
+            <div class="warning">
+                <strong>This link expires in 1 hour.</strong> If you didn't request this password reset, you can safely ignore this email.
+            </div>
+            <p style="color: #999; font-size: 12px; word-break: break-all;">
+                Or copy and paste this link: {$resetLink}
             </p>
         </div>
         <div class="footer">

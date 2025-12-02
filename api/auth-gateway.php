@@ -54,6 +54,22 @@ try {
             handleLogout();
             break;
 
+        case 'login':
+            handlePasswordLogin($db, $input);
+            break;
+
+        case 'register':
+            handleRegister($db, $input);
+            break;
+
+        case 'request-password-reset':
+            handleRequestPasswordReset($db, $input);
+            break;
+
+        case 'reset-password':
+            handleResetPassword($db, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Action not found']);
@@ -272,5 +288,293 @@ function handleLogout() {
     echo json_encode([
         'success' => true,
         'message' => 'Logged out successfully'
+    ]);
+}
+
+/**
+ * Handle email/password login
+ */
+function handlePasswordLogin($db, $input) {
+    if (empty($input['email']) || empty($input['password'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Email and password are required']);
+        return;
+    }
+
+    $email = strtolower(trim($input['email']));
+    $password = $input['password'];
+
+    // Get user with password hash
+    $stmt = $db->prepare('
+        SELECT id, email, password_hash, first_name, last_name, auth_provider
+        FROM users
+        WHERE email = ?
+        LIMIT 1
+    ');
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid email or password']);
+        return;
+    }
+
+    // Check if user has a password set
+    if (empty($user['password_hash'])) {
+        http_response_code(401);
+        echo json_encode([
+            'error' => 'No password set for this account',
+            'message' => 'Please use magic link to login, or set a password via password reset'
+        ]);
+        return;
+    }
+
+    // Verify password
+    if (!password_verify($password, $user['password_hash'])) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid email or password']);
+        return;
+    }
+
+    // Update last login and auth provider
+    $stmt = $db->prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, auth_provider = ? WHERE id = ?');
+    $stmt->execute(['password', $user['id']]);
+
+    // Generate JWT
+    $userName = trim($user['first_name'] . ' ' . $user['last_name']);
+    $jwt = JWT::generate($user['id'], $user['email'], $userName);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Login successful',
+        'token' => $jwt,
+        'user' => [
+            'id' => (int)$user['id'],
+            'email' => $user['email'],
+            'name' => $userName
+        ]
+    ]);
+}
+
+/**
+ * Handle user registration with email/password
+ */
+function handleRegister($db, $input) {
+    $errors = [];
+
+    // Validate required fields
+    if (empty($input['email']) || !filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+        $errors['email'] = 'Valid email is required';
+    }
+
+    if (empty($input['password'])) {
+        $errors['password'] = 'Password is required';
+    } elseif (strlen($input['password']) < 8) {
+        $errors['password'] = 'Password must be at least 8 characters';
+    } elseif (!preg_match('/[A-Z]/', $input['password'])) {
+        $errors['password'] = 'Password must contain at least one uppercase letter';
+    } elseif (!preg_match('/[a-z]/', $input['password'])) {
+        $errors['password'] = 'Password must contain at least one lowercase letter';
+    } elseif (!preg_match('/[0-9]/', $input['password'])) {
+        $errors['password'] = 'Password must contain at least one number';
+    }
+
+    if (empty($input['first_name'])) {
+        $errors['first_name'] = 'First name is required';
+    }
+
+    if (empty($input['last_name'])) {
+        $errors['last_name'] = 'Last name is required';
+    }
+
+    if (!empty($errors)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Validation failed', 'errors' => $errors]);
+        return;
+    }
+
+    $email = strtolower(trim($input['email']));
+
+    // Check if email already exists
+    $stmt = $db->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+    $stmt->execute([$email]);
+    if ($stmt->fetch()) {
+        http_response_code(400);
+        echo json_encode(['error' => 'An account with this email already exists']);
+        return;
+    }
+
+    // Hash password
+    $passwordHash = password_hash($input['password'], PASSWORD_DEFAULT);
+
+    // Create user
+    $stmt = $db->prepare('
+        INSERT INTO users (email, password_hash, first_name, last_name, role, auth_provider, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id
+    ');
+    $stmt->execute([
+        $email,
+        $passwordHash,
+        trim($input['first_name']),
+        trim($input['last_name']),
+        $input['role'] ?? 'parent',
+        'password'
+    ]);
+    $result = $stmt->fetch();
+    $userId = $result['id'];
+
+    // Generate JWT for auto-login after registration
+    $userName = trim($input['first_name'] . ' ' . $input['last_name']);
+    $jwt = JWT::generate($userId, $email, $userName);
+
+    http_response_code(201);
+    echo json_encode([
+        'success' => true,
+        'message' => 'Account created successfully',
+        'token' => $jwt,
+        'user' => [
+            'id' => (int)$userId,
+            'email' => $email,
+            'name' => $userName
+        ]
+    ]);
+}
+
+/**
+ * Handle password reset request
+ */
+function handleRequestPasswordReset($db, $input) {
+    if (empty($input['email'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Email is required']);
+        return;
+    }
+
+    $email = strtolower(trim($input['email']));
+
+    // Check if user exists
+    $stmt = $db->prepare('SELECT id, first_name, last_name FROM users WHERE email = ? LIMIT 1');
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+
+    // Always return success to prevent email enumeration
+    if (!$user) {
+        error_log("Password reset requested for non-existent user: $email");
+        echo json_encode([
+            'success' => true,
+            'message' => 'If an account exists with this email, a password reset link has been sent.'
+        ]);
+        return;
+    }
+
+    // Generate secure token
+    $token = bin2hex(random_bytes(32));
+    $expiresAt = date('Y-m-d H:i:s', time() + (60 * 60)); // 1 hour
+
+    // Store reset token (reuse magic_link_tokens table with a type indicator)
+    $stmt = $db->prepare('
+        INSERT INTO magic_link_tokens (email, token, expires_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ');
+    $stmt->execute([$email . ':password_reset', $token, $expiresAt]);
+
+    // Build reset link
+    $appUrl = Env::get('APP_URL', 'http://localhost:3003');
+    $resetLink = "$appUrl/reset-password?token=$token";
+
+    // Send email
+    $emailService = new Email();
+    $userName = trim($user['first_name'] . ' ' . $user['last_name']);
+    $sent = $emailService->sendPasswordReset($email, $userName, $resetLink);
+
+    if (!$sent) {
+        error_log("Failed to send password reset email to $email");
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'If an account exists with this email, a password reset link has been sent.',
+        'debug' => Env::get('APP_ENV') === 'development' ? ['link' => $resetLink] : null
+    ]);
+}
+
+/**
+ * Handle password reset completion
+ */
+function handleResetPassword($db, $input) {
+    if (empty($input['token'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Token is required']);
+        return;
+    }
+
+    if (empty($input['password'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Password is required']);
+        return;
+    }
+
+    // Validate password strength
+    $password = $input['password'];
+    if (strlen($password) < 8) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Password must be at least 8 characters']);
+        return;
+    }
+    if (!preg_match('/[A-Z]/', $password) || !preg_match('/[a-z]/', $password) || !preg_match('/[0-9]/', $password)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Password must contain uppercase, lowercase, and numbers']);
+        return;
+    }
+
+    $token = $input['token'];
+
+    // Look up token (password reset tokens have :password_reset suffix in email field)
+    $stmt = $db->prepare('
+        SELECT id, email, expires_at, used_at
+        FROM magic_link_tokens
+        WHERE token = ? AND email LIKE ?
+        LIMIT 1
+    ');
+    $stmt->execute([$token, '%:password_reset']);
+    $tokenData = $stmt->fetch();
+
+    if (!$tokenData) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid or expired reset link']);
+        return;
+    }
+
+    // Check if already used
+    if ($tokenData['used_at'] !== null) {
+        http_response_code(400);
+        echo json_encode(['error' => 'This reset link has already been used']);
+        return;
+    }
+
+    // Check if expired
+    if (strtotime($tokenData['expires_at']) < time()) {
+        http_response_code(400);
+        echo json_encode(['error' => 'This reset link has expired']);
+        return;
+    }
+
+    // Extract actual email (remove :password_reset suffix)
+    $email = str_replace(':password_reset', '', $tokenData['email']);
+
+    // Mark token as used
+    $stmt = $db->prepare('UPDATE magic_link_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?');
+    $stmt->execute([$tokenData['id']]);
+
+    // Update user's password
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    $stmt = $db->prepare('UPDATE users SET password_hash = ?, auth_provider = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?');
+    $stmt->execute([$passwordHash, 'password', $email]);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Password has been reset successfully. You can now log in with your new password.'
     ]);
 }
