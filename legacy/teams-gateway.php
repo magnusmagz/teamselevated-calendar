@@ -113,8 +113,8 @@ try {
         case 'POST':
             $data = json_decode(file_get_contents("php://input"), true);
 
-            // program_id is required, use 1 as default if not provided
-            $program_id = $data['program_id'] ?? 1;
+            // program_id is optional, defaults to null
+            $program_id = $data['program_id'] ?? null;
 
             $stmt = $connection->prepare("
                 INSERT INTO teams (name, program_id, season_id, primary_coach_id, age_group, division,
