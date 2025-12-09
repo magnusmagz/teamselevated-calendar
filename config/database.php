@@ -38,12 +38,14 @@ class Database {
                 [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
+                    PDO::ATTR_EMULATE_PREPARES => true, // Use emulated prepares for connection pooling compatibility
                 ]
             );
 
-            // Set search path
+            // Set search path for PostgreSQL
             $this->connection->exec("SET search_path TO public");
+            // Note: DEALLOCATE ALL removed - not needed with emulated prepares
+            // and can interfere with active transactions in connection pooling
 
         } catch (PDOException $e) {
             error_log('Database connection failed: ' . $e->getMessage());
