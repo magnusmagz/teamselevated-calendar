@@ -51,13 +51,6 @@ $zipCode = $input['zipCode'] ?? null;
 try {
     $connection->beginTransaction();
 
-    // Disable RLS for this admin operation (as db owner, we can bypass RLS)
-    try {
-        $connection->exec("SET LOCAL row_security = off");
-    } catch (Exception $e) {
-        throw new Exception("Failed to disable RLS: " . $e->getMessage());
-    }
-
     // 1. Check if user already exists
     try {
         $stmt = $connection->prepare("SELECT id FROM users WHERE email = ?");
