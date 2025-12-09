@@ -52,12 +52,24 @@ try {
     $connection->beginTransaction();
 
     // Disable RLS for this admin operation (as db owner, we can bypass RLS)
-    $connection->exec("SET LOCAL row_security = off");
+    try {
+        $connection->exec("SET LOCAL row_security = off");
+    } catch (Exception $e) {
+        throw new Exception("Failed to disable RLS: " . $e->getMessage());
+    }
 
     // 1. Check if user already exists
     try {
         $stmt = $connection->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->execute([$userEmail]);
+        if (!$stmt) {
+            $errorInfo = $connection->errorInfo();
+            throw new Exception("Prepare failed: " . json_encode($errorInfo));
+        }
+        $result = $stmt->execute([$userEmail]);
+        if (!$result) {
+            $errorInfo = $stmt->errorInfo();
+            throw new Exception("Execute failed: " . json_encode($errorInfo));
+        }
         $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($existingUser) {
