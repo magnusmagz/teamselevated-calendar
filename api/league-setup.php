@@ -52,69 +52,109 @@ try {
     $connection->beginTransaction();
 
     // 1. Check if user already exists
-    $stmt = $connection->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->execute([$userEmail]);
-    $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $connection->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$userEmail]);
+        $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($existingUser) {
-        $connection->rollBack();
-        http_response_code(400);
-        echo json_encode(['error' => 'An account with this email already exists. Please log in instead.']);
-        exit();
+        if ($existingUser) {
+            $connection->rollBack();
+            http_response_code(400);
+            echo json_encode(['error' => 'An account with this email already exists. Please log in instead.']);
+            exit();
+        }
+    } catch (Exception $e) {
+        throw new Exception("Step 1 (check user): " . $e->getMessage());
     }
 
     // 2. Create the user
-    $stmt = $connection->prepare("
-        INSERT INTO users (email, first_name, last_name, system_role)
-        VALUES (?, ?, ?, 'user')
-        RETURNING id
-    ");
+    try {
+        $stmt = $connection->prepare("
+            INSERT INTO users (email, first_name, last_name, system_role)
+            VALUES (?, ?, ?, 'user')
+            RETURNING id
+        ");
 
-    // Split name into first and last
-    $nameParts = explode(' ', $userName, 2);
-    $firstName = $nameParts[0];
-    $lastName = isset($nameParts[1]) ? $nameParts[1] : '';
+        // Split name into first and last
+        $nameParts = explode(' ', $userName, 2);
+        $firstName = $nameParts[0];
+        $lastName = isset($nameParts[1]) ? $nameParts[1] : '';
 
-    $stmt->execute([$userEmail, $firstName, $lastName]);
-    $userId = $stmt->fetchColumn();
+        $stmt->execute([$userEmail, $firstName, $lastName]);
+        $userId = $stmt->fetchColumn();
+
+        if (!$userId) {
+            throw new Exception("Failed to get user ID after insert");
+        }
+    } catch (Exception $e) {
+        throw new Exception("Step 2 (create user): " . $e->getMessage());
+    }
 
     // 3. Create the league
-    $stmt = $connection->prepare("
-        INSERT INTO leagues (name, description, address, city, state, zip_code, contact_phone, active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, true)
-        RETURNING id
-    ");
+    try {
+        $stmt = $connection->prepare("
+            INSERT INTO leagues (name, description, address, city, state, zip_code, contact_phone, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, true)
+            RETURNING id
+        ");
 
-    $leagueDescription = "Welcome to $leagueName";
-    $stmt->execute([$leagueName, $leagueDescription, $address, $city, $state, $zipCode, $userPhone]);
-    $leagueId = $stmt->fetchColumn();
+        $leagueDescription = "Welcome to $leagueName";
+        $stmt->execute([$leagueName, $leagueDescription, $address, $city, $state, $zipCode, $userPhone]);
+        $leagueId = $stmt->fetchColumn();
+
+        if (!$leagueId) {
+            throw new Exception("Failed to get league ID after insert");
+        }
+    } catch (Exception $e) {
+        throw new Exception("Step 3 (create league): " . $e->getMessage());
+    }
 
     // 4. Assign user as league admin
-    $stmt = $connection->prepare("
-        INSERT INTO user_league_access (user_id, league_id, role)
-        VALUES (?, ?, 'league_admin')
-    ");
-    $stmt->execute([$userId, $leagueId]);
+    try {
+        $stmt = $connection->prepare("
+            INSERT INTO user_league_access (user_id, league_id, role)
+            VALUES (?, ?, 'league_admin')
+        ");
+        $stmt->execute([$userId, $leagueId]);
+    } catch (Exception $e) {
+        throw new Exception("Step 4 (assign league admin): " . $e->getMessage());
+    }
 
     // 5. Create a default club for the league (optional but helpful)
-    $stmt = $connection->prepare("
-        INSERT INTO club_profile (name, league_id, address_line1, city, state, zip_code, phone)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        RETURNING id
-    ");
-    $defaultClubName = "$leagueName - Main Club";
-    $stmt->execute([$defaultClubName, $leagueId, $address, $city, $state, $zipCode, $userPhone]);
-    $clubId = $stmt->fetchColumn();
+    try {
+        $stmt = $connection->prepare("
+            INSERT INTO club_profile (name, league_id, address_line1, city, state, zip_code, phone)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+        ");
+        $defaultClubName = "$leagueName - Main Club";
+        $stmt->execute([$defaultClubName, $leagueId, $address, $city, $state, $zipCode, $userPhone]);
+        $clubId = $stmt->fetchColumn();
+
+        if (!$clubId) {
+            throw new Exception("Failed to get club ID after insert");
+        }
+    } catch (Exception $e) {
+        throw new Exception("Step 5 (create default club): " . $e->getMessage());
+    }
 
     // 6. Also give the user club admin access to the default club
-    $stmt = $connection->prepare("
-        INSERT INTO user_club_access (user_id, club_profile_id, role)
-        VALUES (?, ?, 'club_admin')
-    ");
-    $stmt->execute([$userId, $clubId]);
+    try {
+        $stmt = $connection->prepare("
+            INSERT INTO user_club_access (user_id, club_profile_id, role)
+            VALUES (?, ?, 'club_admin')
+        ");
+        $stmt->execute([$userId, $clubId]);
+    } catch (Exception $e) {
+        throw new Exception("Step 6 (assign club admin): " . $e->getMessage());
+    }
 
     // 7. Generate JWT token for immediate login
-    $token = JWT::generateEnhanced($connection, $userId, $userEmail, $userName, $leagueId, 'league');
+    try {
+        $token = JWT::generateEnhanced($connection, $userId, $userEmail, $userName, $leagueId, 'league');
+    } catch (Exception $e) {
+        throw new Exception("Step 7 (generate JWT): " . $e->getMessage());
+    }
 
     $connection->commit();
 
