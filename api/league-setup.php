@@ -49,6 +49,9 @@ $state = $input['state'] ?? null;
 $zipCode = $input['zipCode'] ?? null;
 
 try {
+    // Disable RLS for this admin operation (as db owner, we can bypass RLS)
+    $connection->exec("SET LOCAL row_security = off");
+
     $connection->beginTransaction();
 
     // 1. Check if user already exists
