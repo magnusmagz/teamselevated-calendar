@@ -29,25 +29,30 @@ try {
     $result = $stmt->fetch();
     echo json_encode(['result' => $result]) . "\n";
 
-    // Test 3: Try INSERT in a transaction
-    echo json_encode(['step' => 'Test 3: INSERT with transaction']) . "\n";
+    // Test 3: Try INSERT in a transaction (without SET LOCAL)
+    echo json_encode(['step' => 'Test 3: INSERT with transaction (no SET LOCAL)']) . "\n";
     $connection->beginTransaction();
 
-    // Try to set row_security off
-    try {
-        $connection->exec("SET LOCAL row_security = off");
-        echo json_encode(['status' => 'RLS disabled']) . "\n";
-    } catch (Exception $e) {
-        echo json_encode(['warning' => 'Could not disable RLS: ' . $e->getMessage()]) . "\n";
-    }
+    echo json_encode(['status' => 'Transaction started, now attempting INSERT...']) . "\n";
 
     $testEmail = 'testuser' . time() . '@example.com';
+    echo json_encode(['info' => 'Preparing statement...']) . "\n";
     $stmt = $connection->prepare("
         INSERT INTO users (email, first_name, last_name, system_role)
         VALUES (?, ?, ?, 'user')
         RETURNING id
     ");
-    $stmt->execute([$testEmail, 'Test', 'User']);
+    if (!$stmt) {
+        throw new Exception('Prepare failed: ' . json_encode($connection->errorInfo()));
+    }
+
+    echo json_encode(['info' => 'Executing statement...']) . "\n";
+    $result = $stmt->execute([$testEmail, 'Test', 'User']);
+    if (!$result) {
+        throw new Exception('Execute failed: ' . json_encode($stmt->errorInfo()));
+    }
+
+    echo json_encode(['info' => 'Fetching result...']) . "\n";
     $userId = $stmt->fetchColumn();
 
     $connection->rollBack(); // Don't actually save
