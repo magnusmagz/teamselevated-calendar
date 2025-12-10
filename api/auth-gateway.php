@@ -70,6 +70,10 @@ try {
             handleResetPassword($db, $input);
             break;
 
+        case 'switch-context':
+            handleSwitchContext($db, $input);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Action not found']);
@@ -206,9 +210,12 @@ function handleVerifyMagicLink($db, $input) {
     $stmt = $db->prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?');
     $stmt->execute([$user['id']]);
 
-    // Generate JWT
+    // Generate enhanced JWT with organizational context
     $userName = trim($user['first_name'] . ' ' . $user['last_name']);
-    $jwt = JWT::generate($user['id'], $user['email'], $userName);
+    $jwt = JWT::generateEnhanced($db, $user['id'], $user['email'], $userName);
+
+    // Decode to get user context for response
+    $payload = JWT::decode($jwt);
 
     // Return JWT in response body (no cookie needed for cross-domain)
     echo json_encode([
@@ -218,7 +225,15 @@ function handleVerifyMagicLink($db, $input) {
         'user' => [
             'id' => (int)$user['id'],
             'email' => $user['email'],
-            'name' => $userName
+            'name' => $userName,
+            'system_role' => $payload->system_role ?? 'user',
+            'organization' => [
+                'orgId' => $payload->org_id ?? null,
+                'orgType' => $payload->org_type ?? null,
+                'orgName' => $payload->org_name ?? null
+            ],
+            'roles' => $payload->roles ?? [],
+            'activeRole' => $payload->active_context ?? null
         ]
     ]);
 }
@@ -258,13 +273,21 @@ function handleVerifySession() {
         return;
     }
 
-    // Token is valid
+    // Token is valid - return full organizational context
     echo json_encode([
         'authenticated' => true,
         'user' => [
             'id' => isset($payload->user_id) ? (int)$payload->user_id : null,
             'email' => $payload->email ?? null,
-            'name' => $payload->name ?? null
+            'name' => $payload->name ?? null,
+            'system_role' => $payload->system_role ?? 'user',
+            'organization' => [
+                'orgId' => $payload->org_id ?? null,
+                'orgType' => $payload->org_type ?? null,
+                'orgName' => $payload->org_name ?? null
+            ],
+            'roles' => $payload->roles ?? [],
+            'activeRole' => $payload->active_context ?? null
         ]
     ]);
 }
@@ -341,9 +364,12 @@ function handlePasswordLogin($db, $input) {
     $stmt = $db->prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, auth_provider = ? WHERE id = ?');
     $stmt->execute(['password', $user['id']]);
 
-    // Generate JWT
+    // Generate enhanced JWT with organizational context
     $userName = trim($user['first_name'] . ' ' . $user['last_name']);
-    $jwt = JWT::generate($user['id'], $user['email'], $userName);
+    $jwt = JWT::generateEnhanced($db, $user['id'], $user['email'], $userName);
+
+    // Decode to get user context for response
+    $payload = JWT::decode($jwt);
 
     echo json_encode([
         'success' => true,
@@ -352,7 +378,15 @@ function handlePasswordLogin($db, $input) {
         'user' => [
             'id' => (int)$user['id'],
             'email' => $user['email'],
-            'name' => $userName
+            'name' => $userName,
+            'system_role' => $payload->system_role ?? 'user',
+            'organization' => [
+                'orgId' => $payload->org_id ?? null,
+                'orgType' => $payload->org_type ?? null,
+                'orgName' => $payload->org_name ?? null
+            ],
+            'roles' => $payload->roles ?? [],
+            'activeRole' => $payload->active_context ?? null
         ]
     ]);
 }
@@ -425,9 +459,12 @@ function handleRegister($db, $input) {
     $result = $stmt->fetch();
     $userId = $result['id'];
 
-    // Generate JWT for auto-login after registration
+    // Generate enhanced JWT for auto-login after registration
     $userName = trim($input['first_name'] . ' ' . $input['last_name']);
-    $jwt = JWT::generate($userId, $email, $userName);
+    $jwt = JWT::generateEnhanced($db, $userId, $email, $userName);
+
+    // Decode to get user context for response
+    $payload = JWT::decode($jwt);
 
     http_response_code(201);
     echo json_encode([
@@ -437,7 +474,15 @@ function handleRegister($db, $input) {
         'user' => [
             'id' => (int)$userId,
             'email' => $email,
-            'name' => $userName
+            'name' => $userName,
+            'system_role' => $payload->system_role ?? 'user',
+            'organization' => [
+                'orgId' => $payload->org_id ?? null,
+                'orgType' => $payload->org_type ?? null,
+                'orgName' => $payload->org_name ?? null
+            ],
+            'roles' => $payload->roles ?? [],
+            'activeRole' => $payload->active_context ?? null
         ]
     ]);
 }
@@ -576,5 +621,118 @@ function handleResetPassword($db, $input) {
     echo json_encode([
         'success' => true,
         'message' => 'Password has been reset successfully. You can now log in with your new password.'
+    ]);
+}
+
+/**
+ * Handle context switching (change active role/organization)
+ */
+function handleSwitchContext($db, $input) {
+    // Require authentication
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    $jwt = null;
+
+    if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+        $jwt = $matches[1];
+    }
+
+    if (!$jwt) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Authentication required']);
+        return;
+    }
+
+    // Verify current JWT
+    $payload = JWT::verify($jwt);
+
+    if (!$payload) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid or expired token']);
+        return;
+    }
+
+    // Validate input
+    if (empty($input['scope_id']) || empty($input['scope_type'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'scope_id and scope_type are required']);
+        return;
+    }
+
+    $scopeId = (int)$input['scope_id'];
+    $scopeType = $input['scope_type']; // 'league' or 'club'
+
+    if (!in_array($scopeType, ['league', 'club'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'scope_type must be "league" or "club"']);
+        return;
+    }
+
+    // Get user details
+    $userId = $payload->user_id;
+    $stmt = $db->prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        http_response_code(404);
+        echo json_encode(['error' => 'User not found']);
+        return;
+    }
+
+    // Verify user has access to the requested scope
+    $hasAccess = false;
+
+    if ($scopeType === 'league') {
+        // Check if user has any league role for this league
+        $stmt = $db->prepare('
+            SELECT COUNT(*) as count
+            FROM user_league_access
+            WHERE user_id = ? AND league_id = ? AND active = TRUE
+        ');
+        $stmt->execute([$userId, $scopeId]);
+        $result = $stmt->fetch();
+        $hasAccess = $result['count'] > 0;
+    } else {
+        // Check if user has any club role for this club
+        $stmt = $db->prepare('
+            SELECT COUNT(*) as count
+            FROM user_club_access
+            WHERE user_id = ? AND club_profile_id = ? AND active = TRUE
+        ');
+        $stmt->execute([$userId, $scopeId]);
+        $result = $stmt->fetch();
+        $hasAccess = $result['count'] > 0;
+    }
+
+    if (!$hasAccess) {
+        http_response_code(403);
+        echo json_encode(['error' => 'You do not have access to this organization']);
+        return;
+    }
+
+    // Generate new JWT with the requested active context
+    $userName = trim($user['first_name'] . ' ' . $user['last_name']);
+    $newJwt = JWT::generateEnhanced($db, $user['id'], $user['email'], $userName, $scopeId, $scopeType);
+
+    // Decode to get updated user context
+    $newPayload = JWT::decode($newJwt);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Context switched successfully',
+        'token' => $newJwt,
+        'user' => [
+            'id' => (int)$user['id'],
+            'email' => $user['email'],
+            'name' => $userName,
+            'system_role' => $newPayload->system_role ?? 'user',
+            'organization' => [
+                'orgId' => $newPayload->org_id ?? null,
+                'orgType' => $newPayload->org_type ?? null,
+                'orgName' => $newPayload->org_name ?? null
+            ],
+            'roles' => $newPayload->roles ?? [],
+            'activeRole' => $newPayload->active_context ?? null
+        ]
     ]);
 }
