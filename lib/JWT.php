@@ -14,6 +14,120 @@ class JWT {
     private static $keyId = 'teamselevated-key-1';
 
     /**
+     * Generate a JWT token with enhanced organizational context
+     *
+     * @param PDO $connection Database connection
+     * @param int|string $userId User's database ID
+     * @param string $email User's email
+     * @param string $name User's full name
+     * @param int|null $activeContextScopeId Optional specific scope to set as active context
+     * @param string|null $activeContextType Optional scope type ('league' or 'club')
+     * @return string Signed JWT token with full organizational context
+     */
+    public static function generateEnhanced($connection, $userId, $email, $name, $activeContextScopeId = null, $activeContextType = null) {
+        // Build organizational context
+        $orgContext = self::buildOrganizationalContext($connection, $userId, $activeContextScopeId, $activeContextType);
+
+        // Generate token with enhanced payload
+        return self::generate($userId, $email, $name, $orgContext);
+    }
+
+    /**
+     * Build organizational context for a user
+     *
+     * @param PDO $connection Database connection
+     * @param int|string $userId User's database ID
+     * @param int|null $activeContextScopeId Optional scope ID to set as active
+     * @param string|null $activeContextType Optional scope type ('league' or 'club')
+     * @return array Organizational context with roles and active context
+     */
+    public static function buildOrganizationalContext($connection, $userId, $activeContextScopeId = null, $activeContextType = null) {
+        // Get user's system role
+        $stmt = $connection->prepare("SELECT system_role FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $systemRole = $user['system_role'] ?? 'user';
+
+        // Get all league-level roles
+        $stmt = $connection->prepare("
+            SELECT ula.role, ula.league_id, l.name as league_name
+            FROM user_league_access ula
+            JOIN leagues l ON ula.league_id = l.id
+            WHERE ula.user_id = ? AND ula.active = TRUE
+        ");
+        $stmt->execute([$userId]);
+        $leagueRoles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get all club-level roles
+        $stmt = $connection->prepare("
+            SELECT uca.role, uca.club_profile_id as club_id, c.name as club_name, c.league_id
+            FROM user_club_access uca
+            JOIN club_profile c ON uca.club_profile_id = c.id
+            WHERE uca.user_id = ? AND uca.active = TRUE
+        ");
+        $stmt->execute([$userId]);
+        $clubRoles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Build roles array
+        $roles = [];
+        foreach ($leagueRoles as $lr) {
+            $roles[] = [
+                'role' => $lr['role'],
+                'scope_type' => 'league',
+                'scope_id' => (int)$lr['league_id'],
+                'scope_name' => $lr['league_name']
+            ];
+        }
+
+        foreach ($clubRoles as $cr) {
+            $roles[] = [
+                'role' => $cr['role'],
+                'scope_type' => 'club',
+                'scope_id' => (int)$cr['club_id'],
+                'scope_name' => $cr['club_name'],
+                'league_id' => (int)$cr['league_id']
+            ];
+        }
+
+        // Determine active context
+        $activeContext = null;
+        if ($activeContextScopeId && $activeContextType) {
+            // Use provided context
+            foreach ($roles as $role) {
+                if ($role['scope_id'] == $activeContextScopeId && $role['scope_type'] == $activeContextType) {
+                    $activeContext = $role;
+                    break;
+                }
+            }
+        }
+
+        // If no active context set or not found, use first available role
+        if (!$activeContext && !empty($roles)) {
+            $activeContext = $roles[0];
+        }
+
+        // Determine primary organization (for backward compatibility)
+        $orgId = null;
+        $orgType = null;
+        $orgName = null;
+
+        if ($activeContext) {
+            $orgId = $activeContext['scope_id'];
+            $orgType = $activeContext['scope_type'];
+            $orgName = $activeContext['scope_name'];
+        }
+
+        return [
+            'system_role' => $systemRole,
+            'org_id' => $orgId,
+            'org_type' => $orgType,
+            'org_name' => $orgName,
+            'roles' => $roles,
+            'active_context' => $activeContext
+        ];
+    }
+
+    /**
      * Generate a JWT token for authenticated user
      *
      * @param int|string $userId User's database ID
