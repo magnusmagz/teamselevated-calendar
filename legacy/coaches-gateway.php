@@ -1,7 +1,7 @@
 <?php
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
@@ -28,12 +28,12 @@ try {
         case 'available':
             // Get available coaches
             $stmt = $connection->prepare("
-                SELECT u.id, u.first_name, u.last_name, u.email,
+                SELECT u.id, u.first_name, u.last_name, u.email, u.phone,
                        COUNT(DISTINCT t.id) as team_count
                 FROM users u
                 LEFT JOIN teams t ON t.primary_coach_id = u.id
                 WHERE u.role = 'coach'
-                GROUP BY u.id, u.first_name, u.last_name, u.email
+                GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone
                 ORDER BY u.last_name, u.first_name
             ");
             $stmt->execute();
@@ -72,6 +72,49 @@ try {
                 'success' => true,
                 'id' => $connection->lastInsertId(),
                 'message' => 'Coach created successfully'
+            ]);
+            break;
+
+        case 'update':
+            $data = json_decode(file_get_contents("php://input"), true);
+            $coachId = $_GET['id'] ?? null;
+
+            if (!$coachId) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Coach ID is required']);
+                exit();
+            }
+
+            // Verify coach exists
+            $stmt = $connection->prepare("SELECT id FROM users WHERE id = ? AND role = 'coach'");
+            $stmt->execute([$coachId]);
+            if (!$stmt->fetch()) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Coach not found']);
+                exit();
+            }
+
+            // Update coach information
+            $stmt = $connection->prepare("
+                UPDATE users
+                SET first_name = ?,
+                    last_name = ?,
+                    email = ?,
+                    phone = ?
+                WHERE id = ?
+            ");
+
+            $stmt->execute([
+                $data['first_name'],
+                $data['last_name'],
+                $data['email'],
+                $data['phone'] ?? null,
+                $coachId
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Coach updated successfully'
             ]);
             break;
     }
