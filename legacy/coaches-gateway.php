@@ -28,12 +28,12 @@ try {
         case 'available':
             // Get available coaches
             $stmt = $connection->prepare("
-                SELECT u.id, u.first_name, u.last_name, u.email, u.phone,
+                SELECT u.id, u.first_name, u.last_name, u.email,
                        COUNT(DISTINCT t.id) as team_count
                 FROM users u
                 LEFT JOIN teams t ON t.primary_coach_id = u.id
                 WHERE u.role = 'coach'
-                GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone
+                GROUP BY u.id, u.first_name, u.last_name, u.email
                 ORDER BY u.last_name, u.first_name
             ");
             $stmt->execute();
@@ -99,8 +99,7 @@ try {
                 UPDATE users
                 SET first_name = ?,
                     last_name = ?,
-                    email = ?,
-                    phone = ?
+                    email = ?
                 WHERE id = ?
             ");
 
@@ -108,7 +107,6 @@ try {
                 $data['first_name'],
                 $data['last_name'],
                 $data['email'],
-                $data['phone'] ?? null,
                 $coachId
             ]);
 
