@@ -68,8 +68,23 @@ function isAdmin($pdo, $userId) {
 
     if (!$user) return false;
 
-    // Super admin or league admin
-    return $user['system_role'] === 'super_admin' || $user['role'] === 'admin';
+    // Check if super admin
+    if ($user['system_role'] === 'super_admin' || $user['role'] === 'admin') {
+        return true;
+    }
+
+    // Check if league admin or club admin
+    $stmt = $pdo->prepare("
+        SELECT role
+        FROM user_league_access
+        WHERE user_id = :user_id
+        AND role IN ('league_admin', 'club_admin')
+        LIMIT 1
+    ");
+    $stmt->execute(['user_id' => $userId]);
+    $access = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $access !== false;
 }
 
 if ($method === 'GET') {
